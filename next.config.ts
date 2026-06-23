@@ -2,7 +2,7 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  ...(process.env.NODE_ENV === 'production' && { basePath: '/games/where-is-world' }),
+  ...(process.env.NODE_ENV === 'production' && { basePath: '/games/where-in-world' }),
   async rewrites() {
     const geoUrl = process.env.BACKEND_GEO_URL || 'http://localhost:4100';
     return [
