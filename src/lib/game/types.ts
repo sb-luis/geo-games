@@ -1,7 +1,9 @@
 export type GamePhase = 'welcome' | 'playing' | 'results'
 
+export type RoundOutcome = 'correct' | 'wrong' | 'skipped'
+
 export interface RoundResult {
   country: string
-  guessed: boolean
-  timeMs: number
+  outcome: RoundOutcome
+  timeMs?: number  // set for 'correct' outcomes only
 }

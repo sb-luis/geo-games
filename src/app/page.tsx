@@ -14,9 +14,10 @@ export default function Page() {
 
   const countryNames = useCountryNames()
 
+  // Shuffle all countries — GameScreen consumes them as a queue until time runs out.
   const startGame = useCallback(() => {
     if (!countryNames.length) return
-    setTargets(pickRandom(countryNames, 10))
+    setTargets(pickRandom(countryNames, countryNames.length))
     setResults([])
     setPhase('playing')
   }, [countryNames])
@@ -26,15 +27,11 @@ export default function Page() {
     setPhase('results')
   }, [])
 
-  const handleExit = useCallback(() => {
-    setPhase('welcome')
-  }, [])
-
   if (phase === 'welcome') {
-    return <WelcomeScreen onStart={startGame} loading={countryNames.length === 0} />
+    return <WelcomeScreen onStart={startGame} loading={countryNames.length === 0} countryCount={countryNames.length} />
   }
   if (phase === 'playing') {
     return <GameScreen targets={targets} onEnd={handleGameEnd} />
   }
-  return <ResultsScreen results={results} onPlayAgain={startGame} onExit={handleExit} />
+  return <ResultsScreen results={results} onPlayAgain={startGame} />
 }

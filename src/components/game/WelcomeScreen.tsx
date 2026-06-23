@@ -1,27 +1,81 @@
 'use client'
 
+import { useEffect, useRef, useState } from 'react'
+import NumberFlow from '@number-flow/react'
+
 interface Props {
   onStart: () => void
   loading?: boolean
+  countryCount?: number
 }
 
-export function WelcomeScreen({ onStart, loading = false }: Props) {
+function formatMs(ms: number): { value: number; unit: string } {
+  if (ms >= 1000) return { value: parseFloat((ms / 1000).toFixed(2)), unit: 's' }
+  return { value: ms, unit: 'ms' }
+}
+
+export function WelcomeScreen({ onStart, loading = false, countryCount = 0 }: Props) {
+  const startRef      = useRef(performance.now())
+  const alreadyLoaded = useRef(!loading)
+  const [liveMs, setLiveMs]           = useState(0)
+  const [fetchMs, setFetchMs]         = useState<number | null>(null)
+  const [animatedCount, setAnimatedCount] = useState(0)
+
+  // Live counter while fetching
+  useEffect(() => {
+    if (alreadyLoaded.current || !loading) return
+    const id = setInterval(
+      () => setLiveMs(Math.round(performance.now() - startRef.current)),
+      80,
+    )
+    return () => clearInterval(id)
+  }, [loading])
+
+  // Snap to final fetch time when done
+  useEffect(() => {
+    if (alreadyLoaded.current) return
+    if (!loading && countryCount > 0 && fetchMs === null)
+      setFetchMs(Math.round(performance.now() - startRef.current))
+  }, [loading, countryCount, fetchMs])
+
+  // Animate country count in
+  useEffect(() => {
+    if (countryCount > 0) setAnimatedCount(countryCount)
+  }, [countryCount])
+
+  const displayMs = fetchMs ?? liveMs
+  const { value: fetchValue, unit: fetchUnit } = formatMs(displayMs)
+  const loaded = !loading && countryCount > 0
+
   return (
     <main className="w-screen h-screen bg-[#f3f3f3] flex flex-col items-center justify-center gap-10">
-      <div className="text-center">
-        <h1 className="text-5xl font-bold text-gray-800 tracking-tight">Guess the Country</h1>
-        <p className="mt-3 text-gray-500 text-lg">Find 10 countries on the globe as fast as you can</p>
+
+      <div className="text-center space-y-3">
+        <h1 className="text-5xl font-black tracking-tight text-gray-900 tabular-nums">
+          {loaded ? (
+            <><NumberFlow value={animatedCount} /> countries ready</>
+          ) : (
+            <><NumberFlow value={fetchValue} format={{ maximumFractionDigits: 2 }} /><span className="ml-1">{fetchUnit}</span></>
+          )}
+        </h1>
+        <p className={`text-base text-gray-400 transition-all duration-500 delay-150 ${
+          loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+        }`}>
+          how many can you guess in 1 minute?
+        </p>
       </div>
+
       <button
         onClick={onStart}
-        className={`bg-[#427cdf] text-white px-10 py-3.5 rounded-full font-semibold text-lg transition-all ${
+        className={`px-10 py-3.5 rounded-full font-semibold text-base transition-all duration-150 ${
           loading
-            ? 'opacity-50 cursor-not-allowed'
-            : 'hover:bg-[#3569c7] active:scale-95'
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : 'bg-gray-900 text-white hover:bg-gray-700 active:scale-95'
         }`}
       >
-        {loading ? 'Loading…' : 'Start Game'}
+        Start Game
       </button>
+
     </main>
   )
 }

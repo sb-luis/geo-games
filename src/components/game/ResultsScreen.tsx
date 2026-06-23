@@ -1,56 +1,99 @@
 'use client'
 
+import { useEffect, useState, useCallback } from 'react'
+import NumberFlow from '@number-flow/react'
 import type { RoundResult } from '@/lib/game/types'
 
 interface Props {
   results: RoundResult[]
   onPlayAgain: () => void
-  onExit: () => void
 }
 
-function formatTime(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`
-}
+export function ResultsScreen({ results, onPlayAgain }: Props) {
+  const correct = results.filter(r => r.outcome === 'correct').length
+  const skipped = results.filter(r => r.outcome === 'skipped').length
+  const wrong   = results.filter(r => r.outcome === 'wrong').length
 
-export function ResultsScreen({ results, onPlayAgain, onExit }: Props) {
-  const correct = results.filter(r => r.guessed).length
-  const totalMs = results.reduce((sum, r) => sum + r.timeMs, 0)
+  const [displayScore, setDisplayScore] = useState(0)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    const t = setTimeout(() => setDisplayScore(correct), 150)
+    return () => clearTimeout(t)
+  }, [correct])
+
+  const handleShare = useCallback(async () => {
+    const correctItems = results.filter(r => r.outcome === 'correct')
+    const lines = [
+      `🌍 Where in the World? — 1 min`,
+      ``,
+      `${correct} correct · ${skipped} skipped · ${wrong} wrong`,
+      ``,
+      ...correctItems.map(r => `${r.country} (${((r.timeMs ?? 0) / 1000).toFixed(1)}s)`),
+    ]
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      // clipboard unavailable
+    }
+  }, [results, correct, skipped, wrong])
 
   return (
     <main className="w-screen h-screen bg-[#f3f3f3] flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-lg p-8 w-full max-w-sm">
-        <h2 className="text-2xl font-bold text-gray-800 text-center">Results</h2>
-        <p className="text-center text-gray-400 text-sm mt-1 mb-6">
-          {correct} / 10 correct &middot; {formatTime(totalMs)} total
-        </p>
+      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
 
-        <ul className="space-y-2 mb-8">
+        {/* Score */}
+        <div className="text-center pb-6 border-b border-gray-100">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-3">1 minute</p>
+          <div className="text-5xl font-black text-gray-900 tabular-nums">
+            <NumberFlow value={displayScore} />
+          </div>
+          <p className="text-base text-gray-400 mt-1">
+            {correct === 1 ? 'country' : 'countries'} guessed
+          </p>
+          {(skipped > 0 || wrong > 0) && (
+            <p className="text-sm text-gray-300 mt-2 tabular-nums">
+              {skipped > 0 && `${skipped} skipped`}
+              {skipped > 0 && wrong > 0 && ' · '}
+              {wrong > 0 && `${wrong} wrong`}
+            </p>
+          )}
+        </div>
+
+        {/* Country list */}
+        <ul className="py-4 space-y-1 max-h-64 overflow-y-auto pr-2">
           {results.map((r, i) => (
-            <li key={i} className="flex items-center justify-between text-sm">
-              <span className={r.guessed ? 'text-gray-700' : 'text-gray-400'}>
+            <li key={i} className="flex items-center justify-between py-1 text-sm">
+              <span className={r.outcome === 'correct' ? 'text-gray-800' : 'text-gray-300'}>
                 {r.country}
               </span>
-              <span className={r.guessed ? 'text-green-600 font-medium' : 'text-red-400'}>
-                {r.guessed ? formatTime(r.timeMs) : 'missed'}
+              <span className={`tabular-nums text-xs shrink-0 ml-3 ${r.outcome === 'correct' ? 'text-gray-400' : 'text-gray-200'}`}>
+                {r.outcome === 'correct'
+                  ? `${((r.timeMs ?? 0) / 1000).toFixed(1)}s`
+                  : r.outcome === 'skipped' ? 'skip' : '✗'}
               </span>
             </li>
           ))}
         </ul>
 
-        <div className="flex gap-3">
+        {/* Actions */}
+        <div className="flex gap-3 pt-4 border-t border-gray-100">
           <button
-            onClick={onExit}
-            className="flex-1 py-2.5 rounded-full border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+            onClick={handleShare}
+            className="flex-1 py-2.5 rounded-full border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
           >
-            Exit
+            {copied ? 'Copied!' : 'Share'}
           </button>
           <button
             onClick={onPlayAgain}
-            className="flex-1 py-2.5 rounded-full bg-[#427cdf] text-white text-sm font-semibold hover:bg-[#3569c7] transition-colors"
+            className="flex-1 py-2.5 rounded-full bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 active:scale-95 transition-all duration-150"
           >
             Play Again
           </button>
         </div>
+
       </div>
     </main>
   )
