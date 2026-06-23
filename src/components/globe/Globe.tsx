@@ -1,12 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { GlobeScene } from './GlobeScene';
 import { CAMERA_DIST, MAX_FOV } from '@/lib/geo/lod';
 
-export function Globe() {
+interface GlobeProps {
+  onSelect?: (name: string | null) => void;
+  showLabel?: boolean;
+}
+
+export function Globe({ onSelect, showLabel = true }: GlobeProps) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+
+  const handleSelect = useCallback((name: string | null) => {
+    setSelectedCountry(name);
+    onSelect?.(name);
+  }, [onSelect]);
 
   return (
     <div className="relative w-full h-full">
@@ -15,18 +25,20 @@ export function Globe() {
         gl={{ antialias: true }}
         style={{ width: '100%', height: '100%' }}
       >
-        <GlobeScene onSelect={setSelectedCountry} />
+        <GlobeScene onSelect={handleSelect} />
       </Canvas>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
-        {selectedCountry ? (
-          <span className="rounded-full bg-white/80 px-4 py-1.5 text-sm font-medium text-gray-800 shadow backdrop-blur-sm">
-            {selectedCountry} 
-          </span>
-        ) : (
-          <span className="text-sm text-gray-400">double-click a country</span>
-        )}
-      </div>
+      {showLabel && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
+          {selectedCountry ? (
+            <span className="rounded-full bg-white/80 px-4 py-1.5 text-sm font-medium text-gray-800 shadow backdrop-blur-sm">
+              {selectedCountry}
+            </span>
+          ) : (
+            <span className="text-sm text-gray-400">double-click a country</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import type { GeoCollection } from './types';
 
-const cache = new Map<string, GeoCollection>();
+// Cache the Promise, not the resolved value — callers that arrive while a fetch
+// is in-flight share the same Promise instead of each making their own request.
+const cache = new Map<string, Promise<GeoCollection>>();
 
-export async function fetchGeo(url: string): Promise<GeoCollection> {
-  if (cache.has(url)) return cache.get(url)!;
-  const res  = await fetch(url);
-  const data = (await res.json()) as GeoCollection;
-  cache.set(url, data);
-  return data;
+export function fetchGeo(url: string): Promise<GeoCollection> {
+  if (!cache.has(url)) {
+    cache.set(url, fetch(url).then(r => r.json() as Promise<GeoCollection>));
+  }
+  return cache.get(url)!;
 }
