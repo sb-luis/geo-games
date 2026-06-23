@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  basePath: '/games/where-is-world',
   async rewrites() {
     const geoUrl = process.env.BACKEND_GEO_URL || 'http://localhost:4100';
     return [
