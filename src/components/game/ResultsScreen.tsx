@@ -41,7 +41,7 @@ export function ResultsScreen({ results, onPlayAgain }: Props) {
   }, [results, correct, skipped, wrong])
 
   return (
-    <main className="w-screen h-screen bg-[#f3f3f3] flex items-center justify-center p-6">
+    <main className="w-screen h-dvh bg-[#f3f3f3] flex items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
 
         {/* Score */}

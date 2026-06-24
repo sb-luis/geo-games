@@ -48,7 +48,7 @@ export function WelcomeScreen({ onStart, loading = false, countryCount = 0 }: Pr
   const loaded = !loading && countryCount > 0
 
   return (
-    <main className="w-screen h-screen bg-[#f3f3f3] flex flex-col items-center justify-center gap-10">
+    <main className="w-screen h-dvh bg-[#f3f3f3] flex flex-col items-center justify-center gap-10">
 
       <div className="text-center space-y-3">
         <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums whitespace-nowrap">

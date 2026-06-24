@@ -94,7 +94,7 @@ export function GameScreen({ targets, onEnd }: Props) {
   const country = targets[currentIndex] ?? ''
 
   return (
-    <div className="relative w-screen h-screen">
+    <div className="relative w-screen h-dvh">
       <Globe onSelect={handleSelect} showLabel={false} />
 
       {/* HUD: correct count (left) + game timer (right) */}
