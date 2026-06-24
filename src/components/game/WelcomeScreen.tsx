@@ -15,8 +15,12 @@ function formatMs(ms: number): { value: number; unit: string } {
 }
 
 export function WelcomeScreen({ onStart, loading = false, countryCount = 0 }: Props) {
-  const startRef      = useRef(performance.now())
+  const startRef      = useRef(0)
   const alreadyLoaded = useRef(!loading)
+
+  useEffect(() => {
+    startRef.current = performance.now()
+  }, [])
   const [liveMs, setLiveMs]           = useState(0)
   const [fetchMs, setFetchMs]         = useState<number | null>(null)
   const [animatedCount, setAnimatedCount] = useState(0)
