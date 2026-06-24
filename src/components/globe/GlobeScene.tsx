@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { useEffect, useRef, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -20,9 +20,11 @@ interface LodData {
   fillMap: Map<string, THREE.Group>;
 }
 
-const fillDimMat  = new THREE.MeshBasicMaterial({ color: C_LAND, side: THREE.DoubleSide });
-const fillHighMat = new THREE.MeshBasicMaterial({ color: C_SELECTED, side: THREE.DoubleSide });
-const borderMat   = new THREE.LineBasicMaterial({ color: C_BORDER, depthTest: true, depthWrite: false });
+interface Materials {
+  fillDim:  THREE.MeshBasicMaterial;
+  fillHigh: THREE.MeshBasicMaterial;
+  border:   THREE.LineBasicMaterial;
+}
 
 function applyMat(group: THREE.Group, mat: THREE.Material) {
   for (const child of group.children) (child as THREE.Mesh).material = mat;
@@ -31,7 +33,7 @@ function applyMat(group: THREE.Group, mat: THREE.Material) {
 // Reconstructs Three.js objects from raw buffer data received from the worker.
 // This runs on the main thread but is fast — it only wraps existing typed arrays,
 // no triangulation or sphere projection happens here.
-function reconstructLodData(response: WorkerResponse): LodData {
+function reconstructLodData(response: WorkerResponse, mats: Materials): LodData {
   const borders = new THREE.Group();
   const fills   = new THREE.Group();
   const fillMap = new Map<string, THREE.Group>();
@@ -43,7 +45,7 @@ function reconstructLodData(response: WorkerResponse): LodData {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
       geo.setIndex(new THREE.BufferAttribute(indices, 1));
-      const mesh = new THREE.Mesh(geo, fillDimMat);
+      const mesh = new THREE.Mesh(geo, mats.fillDim);
       mesh.renderOrder = 1;
       featureFills.add(mesh);
     }
@@ -54,7 +56,7 @@ function reconstructLodData(response: WorkerResponse): LodData {
     for (const borderPositions of feat.borders) {
       const geo = new THREE.BufferGeometry();
       geo.setAttribute('position', new THREE.BufferAttribute(borderPositions, 3));
-      const line = new THREE.Line(geo, borderMat);
+      const line = new THREE.Line(geo, mats.border);
       line.renderOrder = 999;
       borders.add(line);
     }
@@ -78,6 +80,12 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
 
+  const mats = useMemo<Materials>(() => ({
+    fillDim:  new THREE.MeshBasicMaterial({ color: C_LAND,     side: THREE.DoubleSide }),
+    fillHigh: new THREE.MeshBasicMaterial({ color: C_SELECTED, side: THREE.DoubleSide }),
+    border:   new THREE.LineBasicMaterial({ color: C_BORDER,   depthTest: true, depthWrite: false }),
+  }), []);
+
   const workerRef       = useRef<Worker | null>(null);
   const lodDataRef      = useRef<(LodData | null)[]>([null, null, null]);
   const geojsonsRef     = useRef<(GeoCollection | null)[]>([null, null, null]);
@@ -98,7 +106,7 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
       const d = lodDataRef.current[i];
       if (d) {
         const g = d.fillMap.get(selectedNameRef.current!);
-        if (g) applyMat(g, fillDimMat);
+        if (g) applyMat(g, mats.fillDim);
       }
     }
     selectedGroupRef.current = null;
@@ -107,7 +115,7 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
   const restoreSelection = useCallback((fillMap: Map<string, THREE.Group>) => {
     if (!selectedNameRef.current) return;
     const g = fillMap.get(selectedNameRef.current);
-    if (g) { selectedGroupRef.current = g; applyMat(g, fillHighMat); }
+    if (g) { selectedGroupRef.current = g; applyMat(g, mats.fillHigh); }
   }, []);
 
   const applyLod = useCallback((level: number) => {
@@ -163,7 +171,7 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
 
       if (!aliveRef.current) return;
 
-      const data = reconstructLodData(response);
+      const data = reconstructLodData(response, mats);
       data.borders.visible = false;
       data.fills.visible   = false;
       scene.add(data.borders);
@@ -317,8 +325,11 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
           if (obj instanceof THREE.Mesh) obj.geometry.dispose();
         });
       }
+      mats.fillDim.dispose();
+      mats.fillHigh.dispose();
+      mats.border.dispose();
     };
-  }, [scene]);
+  }, [scene, mats]);
 
   const handleDoubleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -331,7 +342,7 @@ export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScen
 
     if (name) {
       const g = lodDataRef.current[activeLodRef.current]?.fillMap.get(name);
-      if (g) { selectedGroupRef.current = g; applyMat(g, fillHighMat); }
+      if (g) { selectedGroupRef.current = g; applyMat(g, mats.fillHigh); }
     }
 
     onSelect(name);
