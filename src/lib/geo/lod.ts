@@ -1,6 +1,7 @@
 export const CAMERA_DIST = 3;
 export const MIN_FOV     = 0.3;
 export const MAX_FOV     = 80;
+const SLIDER_POWER = 2.5;
 
 export const LEVELS = [
   { fovMin: 20, url: '/geo/collections/ne_110m_admin_0_countries/items?limit=10000' },
@@ -16,3 +17,11 @@ export function lodForFov(fov: number): 0 | 1 | 2 {
 
 export const clamp = (v: number, lo: number, hi: number) =>
   Math.max(lo, Math.min(hi, v));
+
+export function sliderToFov(v: number): number {
+  return MIN_FOV + Math.pow(1 - v, SLIDER_POWER) * (MAX_FOV - MIN_FOV);
+}
+
+export function fovToSlider(fov: number): number {
+  return 1 - Math.pow((fov - MIN_FOV) / (MAX_FOV - MIN_FOV), 1 / SLIDER_POWER);
+}

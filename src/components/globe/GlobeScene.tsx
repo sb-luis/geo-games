@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -63,11 +63,17 @@ function reconstructLodData(response: WorkerResponse): LodData {
   return { borders, fills, fillMap };
 }
 
-interface Props {
-  onSelect: (name: string | null) => void;
+export interface GlobeSceneHandle {
+  setFov: (fov: number) => void;
+  reset: () => void;
 }
 
-export function GlobeScene({ onSelect }: Props) {
+interface Props {
+  onSelect: (name: string | null) => void;
+  onFovChange?: (fov: number) => void;
+}
+
+export const GlobeScene = forwardRef<GlobeSceneHandle, Props>(function GlobeScene({ onSelect, onFovChange }, ref) {
   const { scene, camera, gl } = useThree();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const controlsRef = useRef<any>(null);
@@ -163,6 +169,9 @@ export function GlobeScene({ onSelect }: Props) {
     return buildPromiseRef.current[level]!;
   }, [scene, applyLod]);
 
+  const onFovChangeRef = useRef(onFovChange);
+  useEffect(() => { onFovChangeRef.current = onFovChange; }, [onFovChange]);
+
   const setFov = useCallback((fov: number) => {
     const f = clamp(fov, MIN_FOV, MAX_FOV);
     fovRef.current = f;
@@ -175,12 +184,22 @@ export function GlobeScene({ onSelect }: Props) {
       controlsRef.current.dampingFactor = 0.1 + Math.min(zoom / 200, 1) * 0.4;
     }
 
+    onFovChangeRef.current?.(f);
+
     const level = lodForFov(f);
     if (level !== currentLevelRef.current) {
       currentLevelRef.current = level;
       loadedRef.current[level] ? applyLod(level) : loadLod(level);
     }
   }, [pc, applyLod, loadLod]);
+
+  useImperativeHandle(ref, () => ({
+    setFov,
+    reset() {
+      controlsRef.current?.reset();
+      setFov(MAX_FOV);
+    },
+  }), [setFov]);
 
   // Create worker before the bootstrap effect so workerRef is populated when loadLod runs.
   useEffect(() => {
@@ -210,37 +229,6 @@ export function GlobeScene({ onSelect }: Props) {
     };
     canvas.addEventListener('wheel', onWheel, { passive: false });
     return () => canvas.removeEventListener('wheel', onWheel);
-  }, [gl, zoomByRatio]);
-
-  // Pinch: ratio of successive distances is the natural geometric zoom factor.
-  useEffect(() => {
-    const canvas = gl.domElement;
-    let lastDist = 0;
-
-    const touchDist = (e: TouchEvent) => {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      return Math.sqrt(dx * dx + dy * dy);
-    };
-
-    const onTouchStart = (e: TouchEvent) => {
-      if (e.touches.length === 2) lastDist = touchDist(e);
-    };
-
-    const onTouchMove = (e: TouchEvent) => {
-      if (e.touches.length !== 2) return;
-      e.preventDefault();
-      const dist = touchDist(e);
-      if (lastDist > 0) zoomByRatio(Math.pow(lastDist / dist, 0.5));
-      lastDist = dist;
-    };
-
-    canvas.addEventListener('touchstart', onTouchStart, { passive: true });
-    canvas.addEventListener('touchmove', onTouchMove, { passive: false });
-    return () => {
-      canvas.removeEventListener('touchstart', onTouchStart);
-      canvas.removeEventListener('touchmove', onTouchMove);
-    };
   }, [gl, zoomByRatio]);
 
   // Bootstrap: trigger LOD 0, then pre-build LODs 1 and 2 in the worker while the
@@ -313,4 +301,4 @@ export function GlobeScene({ onSelect }: Props) {
       <GlobeRefLines />
     </>
   );
-}
+});
