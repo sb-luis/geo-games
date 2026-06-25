@@ -15,7 +15,7 @@ export default function ExplorePage() {
   const [hoveredCountry, setHoveredCountry]     = useState<string | null>(null)
   const globeRef                                = useRef<ExploreGlobeHandle>(null)
 
-  useEffect(() => { emitStatus('home') }, [emitStatus])
+  useEffect(() => { emitStatus('explore') }, [emitStatus])
 
   const initialPosition = useMemo(() => {
     return cameraOrientationRef.current ?? undefined
@@ -31,6 +31,7 @@ export default function ExplorePage() {
       <ExploreGlobe
         ref={globeRef}
         cursors={cursors}
+        currentStatus="explore"
         onCursorMove={emitCursorMove}
         onCameraChange={handleCameraChange}
         onHover={setHoveredCountry}

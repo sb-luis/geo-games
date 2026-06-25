@@ -9,20 +9,20 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import type { Visitor } from './types'
+import type { Visitor, UserStatus } from './types'
 
 const WS_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? 'ws://localhost:3002/ws'
 
 type ServerMessage =
   | { type: 'init'; self: Visitor; visitors: Visitor[] }
   | { type: 'visitor_joined'; visitor: Visitor }
-  | { type: 'visitor_updated'; id: string; alias?: string | null; status?: 'home' | 'playing' }
+  | { type: 'visitor_updated'; id: string; alias?: string | null; status?: UserStatus }
   | { type: 'cursor_moved'; id: string; lat: number; lng: number }
   | { type: 'visitor_left'; id: string }
 
 type ClientMessage =
   | { type: 'set_alias'; alias: string }
-  | { type: 'set_status'; status: 'home' | 'playing' }
+  | { type: 'set_status'; status: UserStatus }
   | { type: 'cursor_move'; lat: number; lng: number }
 
 interface SocketContextValue {
@@ -31,7 +31,7 @@ interface SocketContextValue {
   connected: boolean
   setAlias: (alias: string) => void
   emitCursorMove: (lat: number, lng: number) => void
-  emitStatus: (status: 'home' | 'playing') => void
+  emitStatus: (status: UserStatus) => void
 }
 
 const SocketContext = createContext<SocketContextValue>({
@@ -46,7 +46,7 @@ const SocketContext = createContext<SocketContextValue>({
 export function SocketProvider({ children }: { children: ReactNode }) {
   const wsRef             = useRef<WebSocket | null>(null)
   const lastEmitRef       = useRef(0)
-  const pendingStatusRef  = useRef<'home' | 'playing' | null>(null)
+  const pendingStatusRef  = useRef<UserStatus | null>(null)
   const reconnectDelay    = useRef(500)
   const reconnectTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const unmounted         = useRef(false)
@@ -145,7 +145,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     setSelf(prev => prev ? { ...prev, lat, lng } : prev)
   }, [send])
 
-  const emitStatus = useCallback((status: 'home' | 'playing') => {
+  const emitStatus = useCallback((status: UserStatus) => {
     pendingStatusRef.current = status
     send({ type: 'set_status', status })
   }, [send])

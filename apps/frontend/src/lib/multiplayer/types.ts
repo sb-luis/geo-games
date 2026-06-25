@@ -1,10 +1,12 @@
+export type UserStatus = 'home' | 'explore' | 'practice' | 'playing' | 'results'
+
 export interface Visitor {
   id: string
   alias: string | null
   color: string
   lat: number | null
   lng: number | null
-  status: 'home' | 'playing'
+  status: UserStatus
 }
 
 export interface CursorData {
@@ -13,5 +15,5 @@ export interface CursorData {
   color: string
   lat: number
   lng: number
-  status: 'home' | 'playing'
+  status: UserStatus
 }

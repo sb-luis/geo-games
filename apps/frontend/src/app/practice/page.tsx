@@ -14,7 +14,7 @@ export default function PracticePage() {
   const { cursors }                             = usePresence()
   const { targets, setResults, setElapsedSeconds, cameraOrientationRef } = useGame()
 
-  useEffect(() => { emitStatus('playing') }, [emitStatus])
+  useEffect(() => { emitStatus('practice') }, [emitStatus])
 
   useEffect(() => {
     if (targets.length === 0) router.replace('/')

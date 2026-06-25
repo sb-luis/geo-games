@@ -22,7 +22,7 @@ import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, s
 import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED, C_CORRECT, C_WRONG } from '@/lib/geo/palette'
 import type { GeoCollection } from '@/lib/geo/types'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
-import type { CursorData } from '@/lib/multiplayer/types'
+import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,7 @@ interface CursorState {
   targetVec:  THREE.Vector3
   color:      string
   alias:      string
-  status:     'home' | 'playing'
+  status:     UserStatus
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -134,7 +134,7 @@ interface SceneProps {
   onCameraChange?: (lat: number, lng: number) => void
   cursorDataRef:   React.RefObject<Map<string, CursorState>>
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
-  currentStatus:   'home' | 'playing'
+  currentStatus:   UserStatus
   interactive?:    boolean
 }
 
@@ -579,7 +579,7 @@ interface Props {
   onCursorMove?:    (lat: number, lng: number) => void
   onCameraChange?:  (lat: number, lng: number) => void
   cursors?:         CursorData[]
-  currentStatus:    'home' | 'playing'
+  currentStatus:    UserStatus
   initialPosition?: { lat: number; lng: number }
   showLabel?:       boolean
   interactive?:     boolean

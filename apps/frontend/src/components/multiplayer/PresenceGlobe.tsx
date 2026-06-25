@@ -18,7 +18,7 @@ import { fetchGeo } from '@/lib/geo/fetch'
 import { LEVELS, CAMERA_DIST } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND } from '@/lib/geo/palette'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
-import type { CursorData } from '@/lib/multiplayer/types'
+import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ interface CursorState {
   targetVec:  THREE.Vector3
   color:      string
   alias:      string
-  status:     'home' | 'playing'
+  status:     UserStatus
 }
 
 // ─── Cursor visuals ───────────────────────────────────────────────────────────
@@ -63,7 +63,7 @@ function CursorLabel({ alias, color }: { alias: string; color: string }) {
 interface SceneProps {
   cursorDataRef:   React.RefObject<Map<string, CursorState>>
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
-  currentStatus:   'home' | 'playing'
+  currentStatus:   UserStatus
   onCursorMove?:   (lat: number, lng: number) => void
   onCameraChange?: (lat: number, lng: number) => void
 }
@@ -205,7 +205,7 @@ function latLngToCameraPos(lat: number, lng: number): [number, number, number] {
 
 interface Props {
   cursors:          CursorData[]
-  currentStatus:    'home' | 'playing'
+  currentStatus:    UserStatus
   initialPosition?: { lat: number; lng: number }
   onCursorMove?:    (lat: number, lng: number) => void
   onCameraChange?:  (lat: number, lng: number) => void

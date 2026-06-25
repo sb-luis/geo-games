@@ -151,7 +151,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
         onCursorMove={onCursorMove}
         onCameraChange={onCameraChange}
         cursors={cursors}
-        currentStatus="playing"
+        currentStatus={practice ? 'practice' : 'playing'}
         initialPosition={initialPosition}
         showLabel={false}
         interactive={isLive}

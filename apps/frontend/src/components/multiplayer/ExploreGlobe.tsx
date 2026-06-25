@@ -22,7 +22,7 @@ import { LEVELS, lodForFov, clamp, CAMERA_DIST, MIN_FOV, MAX_FOV, fovToSlider, s
 import { C_OCEAN, C_LAND, C_BORDER, C_SELECTED } from '@/lib/geo/palette'
 import type { GeoCollection } from '@/lib/geo/types'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
-import type { CursorData } from '@/lib/multiplayer/types'
+import type { CursorData, UserStatus } from '@/lib/multiplayer/types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -37,6 +37,7 @@ interface CursorState {
   targetVec:  THREE.Vector3
   color:      string
   alias:      string
+  status:     UserStatus
 }
 
 function applyMat(group: THREE.Group, mat: THREE.Material) {
@@ -59,11 +60,12 @@ interface SceneProps {
   onHover?:        (name: string | null) => void
   cursorDataRef:   React.RefObject<Map<string, CursorState>>
   cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
+  currentStatus:   UserStatus
 }
 
 const ExploreScene = forwardRef<SceneHandle, SceneProps>(
   function ExploreScene(
-    { onFovChange, onCursorMove, onCameraChange, onHover, cursorDataRef, cursorRefsMap },
+    { onFovChange, onCursorMove, onCameraChange, onHover, cursorDataRef, cursorRefsMap, currentStatus },
     ref,
   ) {
     const { scene, camera, gl } = useThree()
@@ -372,7 +374,6 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       const cx = size.width / 2
       const cy = size.height / 2
 
-      // Cursors — always full opacity in explore (everyone is visible)
       for (const [id, state] of cursorDataRef.current) {
         state.currentVec.lerp(state.targetVec, 0.08).normalize()
         const facing = state.currentVec.dot(camDir.current) > 0.02
@@ -388,7 +389,10 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
         }
 
         const el = cursorRefsMap.current?.get(id)
-        if (el) { el.style.transform = `translate(${sx}px, ${sy}px)`; el.style.opacity = '1' }
+        if (el) {
+          el.style.transform = `translate(${sx}px, ${sy}px)`
+          el.style.opacity = state.status === currentStatus ? '1' : '0.35'
+        }
       }
 
       // Throttled camera orientation callback
@@ -458,6 +462,7 @@ export interface ExploreGlobeHandle {
 
 interface Props {
   cursors?:         CursorData[]
+  currentStatus:    UserStatus
   initialPosition?: { lat: number; lng: number }
   onCursorMove?:    (lat: number, lng: number) => void
   onCameraChange?:  (lat: number, lng: number) => void
@@ -465,7 +470,7 @@ interface Props {
 }
 
 export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function ExploreGlobe(
-  { cursors = [], initialPosition, onCursorMove, onCameraChange, onHover },
+  { cursors = [], currentStatus, initialPosition, onCursorMove, onCameraChange, onHover },
   ref,
 ) {
   const [sliderValue, setSliderValue] = useState(() => fovToSlider(MAX_FOV))
@@ -498,13 +503,15 @@ export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function Explo
       const existing = cursorDataRef.current.get(c.id)
       if (existing) {
         existing.targetVec.copy(target)
-        existing.alias = c.alias ?? ''
+        existing.alias  = c.alias ?? ''
+        existing.status = c.status
       } else {
         cursorDataRef.current.set(c.id, {
           currentVec: target.clone(),
           targetVec:  target.clone(),
           color:      c.color,
           alias:      c.alias ?? '',
+          status:     c.status,
         })
       }
     }
@@ -540,6 +547,7 @@ export const ExploreGlobe = forwardRef<ExploreGlobeHandle, Props>(function Explo
           onHover={onHover}
           cursorDataRef={cursorDataRef}
           cursorRefsMap={cursorRefsMap}
+          currentStatus={currentStatus}
         />
       </Canvas>
 

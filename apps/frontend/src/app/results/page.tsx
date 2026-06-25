@@ -11,7 +11,7 @@ export default function ResultsPage() {
   const { emitStatus }   = useSocket()
   const { results, mode, elapsedSeconds } = useGame()
 
-  useEffect(() => { emitStatus('playing') }, [emitStatus])
+  useEffect(() => { emitStatus('results') }, [emitStatus])
 
   // Redirect to home on hard refresh (results only null if no game was played in this session)
   useEffect(() => {
