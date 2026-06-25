@@ -8,7 +8,7 @@ import type { RoundResult } from '@/lib/game/types'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 const GAME_DURATION_S  = 60
-const FEEDBACK_MS      = 1200 
+const FEEDBACK_MS      = 1200
 const BREATHER_MS      = 2800
 
 interface Feedback {
@@ -18,16 +18,17 @@ interface Feedback {
 
 interface Props {
   targets:          string[]
+  practice?:        boolean
   cursors?:         CursorData[]
   initialPosition?: { lat: number; lng: number }
   onCursorMove?:    (lat: number, lng: number) => void
   onCameraChange?:  (lat: number, lng: number) => void
-  onEnd:            (results: RoundResult[]) => void
+  onEnd:            (results: RoundResult[], elapsedSeconds?: number) => void
 }
 
-export function GameScreen({ targets, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd }: Props) {
+export function GameScreen({ targets, practice = false, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [secondsLeft, setSecondsLeft]   = useState(GAME_DURATION_S)
+  const [displaySeconds, setDisplaySeconds] = useState(practice ? 0 : GAME_DURATION_S)
   const [feedback, setFeedback]         = useState<Feedback | null>(null)
   const [isLive, setIsLive]             = useState(false)
 
@@ -36,48 +37,64 @@ export function GameScreen({ targets, cursors = [], initialPosition, onCursorMov
   const startTimeRef    = useRef(performance.now())
   const doneRef         = useRef(false)
   const endedRef        = useRef(false)
+  // timed mode: when the game ends (absolute timestamp)
   const gameEndRef      = useRef(Date.now() + GAME_DURATION_S * 1000)
+  // practice mode: when the game started (adjusted to exclude paused time)
+  const gameStartRef    = useRef(Date.now())
   const pausedAtRef     = useRef<number | null>(null)
   const globeRef        = useRef<MultiplayerGlobeHandle>(null)
   const onEndRef        = useRef(onEnd)
   onEndRef.current      = onEnd
 
-  // Game clock — skips when paused (find phase or feedback)
+  // Game clock — skips when paused (feedback phase)
   useEffect(() => {
     const id = setInterval(() => {
       if (pausedAtRef.current !== null) return
-      const remaining = Math.ceil((gameEndRef.current - Date.now()) / 1000)
-      const clamped   = Math.max(0, remaining)
-      setSecondsLeft(clamped)
-      if (clamped === 0 && !endedRef.current) {
-        endedRef.current = true
-        clearInterval(id)
-        onEndRef.current([...resultsRef.current])
+      if (practice) {
+        setDisplaySeconds(Math.floor((Date.now() - gameStartRef.current) / 1000))
+      } else {
+        const remaining = Math.ceil((gameEndRef.current - Date.now()) / 1000)
+        const clamped   = Math.max(0, remaining)
+        setDisplaySeconds(clamped)
+        if (clamped === 0 && !endedRef.current) {
+          endedRef.current = true
+          clearInterval(id)
+          onEndRef.current([...resultsRef.current])
+        }
       }
     }, 200)
     return () => clearInterval(id)
-  }, [])
+  }, [practice])
 
   // Each new country: go live immediately, unpausing the clock if it was paused
   useEffect(() => {
     if (pausedAtRef.current !== null) {
-      gameEndRef.current += Date.now() - pausedAtRef.current
+      const pausedDuration = Date.now() - pausedAtRef.current
+      if (practice) {
+        gameStartRef.current += pausedDuration  // shift start forward to exclude pause
+      } else {
+        gameEndRef.current += pausedDuration    // shift end forward to exclude pause
+      }
       pausedAtRef.current = null
     }
     setIsLive(true)
-  }, [currentIndex])
+  }, [currentIndex, practice])
 
   const advance = useCallback(() => {
     if (endedRef.current) return
-    setCurrentIndex(prev => {
-      const next = prev + 1
-      currentIndexRef.current = next
-      return next
-    })
+    const next = currentIndexRef.current + 1
+    currentIndexRef.current = next
+    if (practice && next >= targets.length) {
+      endedRef.current = true
+      setFeedback(null)
+      onEndRef.current([...resultsRef.current], Math.floor((Date.now() - gameStartRef.current) / 1000))
+      return
+    }
+    setCurrentIndex(next)
     doneRef.current = false
     startTimeRef.current = performance.now()
     setFeedback(null)
-  }, [])
+  }, [practice, targets.length])
 
   const handleSkip = useCallback(() => {
     if (doneRef.current || endedRef.current) return
@@ -85,6 +102,12 @@ export function GameScreen({ targets, cursors = [], initialPosition, onCursorMov
     resultsRef.current.push({ country: targets[currentIndexRef.current], outcome: 'skipped' })
     advance()
   }, [targets, advance])
+
+  const handleQuit = useCallback(() => {
+    if (endedRef.current) return
+    endedRef.current = true
+    onEndRef.current([...resultsRef.current], Math.floor((Date.now() - gameStartRef.current) / 1000))
+  }, [])
 
   const handleSelect = useCallback((name: string | null) => {
     if (!name || doneRef.current || endedRef.current) return
@@ -150,30 +173,47 @@ export function GameScreen({ targets, cursors = [], initialPosition, onCursorMov
             </div>
           </div>
 
-          {/* Centre: Skip button — fades active/inactive with the game state */}
-          <button
-            onClick={handleSkip}
-            disabled={!isLive}
-            className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold
-              transition-all duration-300 select-none
-              ${isLive
-                ? 'bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95'
-                : 'bg-black/4 text-gray-300 cursor-default'
-              }`}
-          >
-            Skip
-          </button>
+          {/* Centre: action buttons */}
+          <div className="flex-shrink-0 flex items-center gap-2">
+            {practice && (
+              <button
+                onClick={handleQuit}
+                className="flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold
+                  transition-all duration-300 select-none
+                  bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95"
+              >
+                Quit
+              </button>
+            )}
+            <button
+              onClick={handleSkip}
+              disabled={!isLive}
+              className={`flex-shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold
+                transition-all duration-300 select-none
+                ${isLive
+                  ? 'bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95'
+                  : 'bg-black/4 text-gray-300 cursor-default'
+                }`}
+            >
+              Skip
+            </button>
+          </div>
 
-          {/* Right: timer + reset */}
+          {/* Right: timer/stopwatch + reset */}
           <div className="flex-shrink-0 flex items-center gap-2.5">
             <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
               !isLive
                 ? 'text-gray-300'
-                : secondsLeft <= 10
-                  ? 'text-rose-400'
-                  : 'text-gray-500'
+                : practice
+                  ? 'text-gray-500'
+                  : displaySeconds <= 10
+                    ? 'text-rose-400'
+                    : 'text-gray-500'
             }`}>
-              <NumberFlow value={secondsLeft} />s
+              {practice && displaySeconds >= 60
+                ? <><NumberFlow value={Math.floor(displaySeconds / 60)} />m <NumberFlow value={displaySeconds % 60} />s</>
+                : <><NumberFlow value={displaySeconds} />s</>
+              }
             </span>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-black/5 active:scale-95 transition-all duration-150 text-base"

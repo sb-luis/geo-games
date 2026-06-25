@@ -9,7 +9,7 @@ import { useGame } from '@/lib/game/GameContext'
 export default function ResultsPage() {
   const router           = useRouter()
   const { emitStatus }   = useSocket()
-  const { results }      = useGame()
+  const { results, mode, elapsedSeconds } = useGame()
 
   useEffect(() => { emitStatus('playing') }, [emitStatus])
 
@@ -23,6 +23,8 @@ export default function ResultsPage() {
   return (
     <ResultsScreen
       results={results}
+      mode={mode}
+      elapsedSeconds={elapsedSeconds ?? undefined}
       onContinue={() => router.push('/')}
     />
   )

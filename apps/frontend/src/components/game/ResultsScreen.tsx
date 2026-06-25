@@ -5,11 +5,18 @@ import NumberFlow from '@number-flow/react'
 import type { RoundResult } from '@/lib/game/types'
 
 interface Props {
-  results: RoundResult[]
-  onContinue: () => void
+  results:         RoundResult[]
+  mode?:           'timed' | 'practice'
+  elapsedSeconds?: number
+  onContinue:      () => void
 }
 
-export function ResultsScreen({ results, onContinue }: Props) {
+function formatElapsed(s: number): string {
+  if (s < 60) return `${s}s`
+  return `${Math.floor(s / 60)}m ${s % 60}s`
+}
+
+export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onContinue }: Props) {
   const correct = results.filter(r => r.outcome === 'correct').length
   const skipped = results.filter(r => r.outcome === 'skipped').length
   const wrong   = results.filter(r => r.outcome === 'wrong').length
@@ -25,7 +32,7 @@ export function ResultsScreen({ results, onContinue }: Props) {
   const handleShare = useCallback(async () => {
     const correctItems = results.filter(r => r.outcome === 'correct')
     const lines = [
-      `🌍 Where in the World? — 1 min`,
+      `🌍 where in world? — ${mode === 'practice' ? `practice (${elapsedSeconds != null ? formatElapsed(elapsedSeconds) : '?'})` : '1 min'}`,
       ``,
       `${correct} correct · ${skipped} skipped · ${wrong} wrong`,
       ``,
@@ -46,7 +53,9 @@ export function ResultsScreen({ results, onContinue }: Props) {
 
         {/* Score */}
         <div className="text-center pb-6 border-b border-gray-100">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-3">1 minute</p>
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-3">
+            {mode === 'practice' ? 'Practice' : '1 minute'}
+          </p>
           <div className="text-5xl font-black text-gray-900 tabular-nums">
             <NumberFlow value={displayScore} />
           </div>

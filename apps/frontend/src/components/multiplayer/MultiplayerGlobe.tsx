@@ -181,11 +181,13 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
 
     const clearSelectionMaterials = useCallback(() => {
       if (!selectedNameRef.current) return
+      // restore game highlight if one exists, otherwise fall back to the default land colour.
+      const mat = gameHlsRef.current.get(selectedNameRef.current) ?? mats.fillDim
       for (let i = 0; i < 3; i++) {
         const d = lodDataRef.current[i]
         if (d) {
           const g = d.fillMap.get(selectedNameRef.current!)
-          if (g) applyMat(g, mats.fillDim)
+          if (g) applyMat(g, mat)
         }
       }
       selectedGroupRef.current = null

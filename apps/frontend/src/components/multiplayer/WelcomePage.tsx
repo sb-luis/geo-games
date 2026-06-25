@@ -8,6 +8,7 @@ import type { CursorData } from '@/lib/multiplayer/types'
 
 interface Props {
   onStart:          () => void
+  onPractice?:      () => void
   loading?:         boolean
   countryCount?:    number
   alias:            string | null
@@ -25,6 +26,7 @@ function formatMs(ms: number): { value: number; unit: string } {
 
 export function WelcomePage({
   onStart,
+  onPractice,
   loading = false,
   countryCount = 0,
   alias,
@@ -108,12 +110,22 @@ export function WelcomePage({
         loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
       }`}>
         {alias ? (
-          <button
-            onClick={onStart}
-            className="w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-base hover:bg-gray-700 active:scale-95 transition-all duration-150"
-          >
-            Start Game
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={onStart}
+              className="w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-base hover:bg-gray-700 active:scale-95 transition-all duration-150"
+            >
+              Start Game
+            </button>
+            {onPractice && (
+              <button
+                onClick={onPractice}
+                className="w-full py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
+              >
+                Practice
+              </button>
+            )}
+          </div>
         ) : (
           <AliasSelect onSubmit={onAliasSubmit} />
         )}

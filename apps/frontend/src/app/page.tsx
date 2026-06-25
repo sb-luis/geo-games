@@ -18,7 +18,7 @@ export default function Page() {
   const router                                         = useRouter()
   const { self, setAlias, emitCursorMove, emitStatus } = useSocket()
   const { cursors }                                    = usePresence()
-  const { countryNames, startGame, cameraOrientationRef } = useGame()
+  const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
 
   useEffect(() => { emitStatus('home') }, [emitStatus])
 
@@ -35,6 +35,11 @@ export default function Page() {
     router.push('/play')
   }
 
+  const handlePractice = () => {
+    startPractice()
+    router.push('/practice')
+  }
+
   const handleCameraChange = (lat: number, lng: number) => {
     cameraOrientationRef.current = { lat, lng }
   }
@@ -42,6 +47,7 @@ export default function Page() {
   return (
     <WelcomePage
       onStart={handleStart}
+      onPractice={handlePractice}
       loading={countryNames.length === 0}
       countryCount={countryNames.length}
       alias={self?.alias ?? null}
