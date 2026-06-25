@@ -102,10 +102,16 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
 
     const pc = camera as THREE.PerspectiveCamera
 
-    const clearHover = useCallback(() => {
+    // Select a country by name — no-ops if already selected or name is null
+    const selectCountry = useCallback((name: string | null) => {
+      if (!name || name === hoveredNameRef.current) return
       if (hoveredGroupRef.current) applyMat(hoveredGroupRef.current, mat.fill)
-      hoveredGroupRef.current = null
-      hoveredNameRef.current  = null
+      hoveredNameRef.current = name
+      const lod = lodDataRef.current[activeLodRef.current]
+      const g   = lod?.fillMap.get(name) ?? null
+      hoveredGroupRef.current = g
+      if (g) applyMat(g, mat.hover)
+      onHoverRef.current?.(name)
     }, [mat])
 
     const applyLod = useCallback((level: number) => {
@@ -289,12 +295,45 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
       }
     }, [gl, zoomByRatio])
 
-    // Bootstrap: load LODs sequentially in background
+    // Bootstrap: load LODs, then pick a random starting country
     useEffect(() => {
       setFov(MAX_FOV)
       const preload = async () => {
         await loadLod(0)
         if (!aliveRef.current) return
+
+        // Orient camera to a random country and pre-select it
+        const geojson = geojsonsRef.current[0]
+        const lod     = lodDataRef.current[0]
+        if (geojson && lod) {
+          const valid = geojson.features.filter(f => {
+            const n = String(f.properties?.NAME ?? f.properties?.ADMIN ?? '')
+            return n && n !== 'Unknown'
+          })
+          const feat = valid[Math.floor(Math.random() * valid.length)]
+          if (feat) {
+            const name = String(feat.properties?.NAME ?? feat.properties?.ADMIN ?? '')
+            const polys = feat.geometry.type === 'Polygon'
+              ? [feat.geometry.coordinates as number[][][]]
+              : feat.geometry.coordinates as number[][][][]
+            let ring = polys[0][0]
+            for (const poly of polys) { if (poly[0].length > ring.length) ring = poly[0] }
+            let sumLon = 0, sumLat = 0
+            for (const [lon, lat] of ring) { sumLon += lon; sumLat += lat }
+            const dir = latLonToVec3(sumLat / ring.length, sumLon / ring.length, 1).normalize()
+
+            pc.position.copy(dir.multiplyScalar(CAMERA_DIST))
+            pc.lookAt(0, 0, 0)
+            controlsRef.current?.update()
+
+            hoveredNameRef.current = name
+            const g = lod.fillMap.get(name) ?? null
+            hoveredGroupRef.current = g
+            if (g) applyMat(g, mat.hover)
+            onHoverRef.current?.(name)
+          }
+        }
+
         await loadLod(1)
         if (!aliveRef.current) return
         await loadLod(2)
@@ -364,30 +403,18 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
     const handlePointerMove = useCallback((e: ThreeEvent<PointerEvent>) => {
       const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
       onCursorMoveRef.current?.(lat, lon)
-
-      // Throttle hit-test — runs at most every 32ms (~30fps) to stay cheap
+      // Throttle hit-test to ~30fps
       const now = performance.now()
       if (now - lastHitRef.current < 32) return
       lastHitRef.current = now
+      selectCountry(pickCountry(lon, lat, geojsonsRef.current[activeLodRef.current]?.features ?? []))
+    }, [selectCountry])
 
-      const features = geojsonsRef.current[activeLodRef.current]?.features ?? []
-      const name = pickCountry(lon, lat, features)
-
-      if (name !== hoveredNameRef.current) {
-        if (hoveredGroupRef.current) applyMat(hoveredGroupRef.current, mat.fill)
-        hoveredNameRef.current = name
-        const lod = lodDataRef.current[activeLodRef.current]
-        const g   = lod?.fillMap.get(name ?? '') ?? null
-        hoveredGroupRef.current = g
-        if (g) applyMat(g, mat.hover)
-        onHoverRef.current?.(name)
-      }
-    }, [mat])
-
-    const handlePointerLeave = useCallback(() => {
-      clearHover()
-      onHoverRef.current?.(null)
-    }, [clearHover])
+    // onClick handles mobile taps (browser suppresses it after a drag, so no conflict with rotation)
+    const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
+      const { lat, lon } = vec3ToLatLon(e.point.clone().normalize())
+      selectCountry(pickCountry(lon, lat, geojsonsRef.current[activeLodRef.current]?.features ?? []))
+    }, [selectCountry])
 
     return (
       <>
@@ -400,7 +427,7 @@ const ExploreScene = forwardRef<SceneHandle, SceneProps>(
           minDistance={CAMERA_DIST}
           maxDistance={CAMERA_DIST}
         />
-        <mesh onPointerMove={handlePointerMove} onPointerLeave={handlePointerLeave}>
+        <mesh onPointerMove={handlePointerMove} onClick={handleClick}>
           <sphereGeometry args={[1, 64, 64]} />
           <meshBasicMaterial color={C_OCEAN} />
         </mesh>
