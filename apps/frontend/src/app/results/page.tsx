@@ -13,12 +13,12 @@ export default function ResultsPage() {
 
   useEffect(() => { emitStatus('playing') }, [emitStatus])
 
-  // Redirect to home if there are no results (e.g. hard refresh)
+  // Redirect to home on hard refresh (results only null if no game was played in this session)
   useEffect(() => {
-    if (results.length === 0) router.replace('/')
+    if (results === null) router.replace('/')
   }, [results, router])
 
-  if (results.length === 0) return null
+  if (results === null) return null
 
   return (
     <ResultsScreen

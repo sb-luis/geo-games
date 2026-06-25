@@ -17,13 +17,15 @@ interface Feedback {
 }
 
 interface Props {
-  targets:       string[]
-  cursors?:      CursorData[]
-  onCursorMove?: (lat: number, lng: number) => void
-  onEnd:         (results: RoundResult[]) => void
+  targets:          string[]
+  cursors?:         CursorData[]
+  initialPosition?: { lat: number; lng: number }
+  onCursorMove?:    (lat: number, lng: number) => void
+  onCameraChange?:  (lat: number, lng: number) => void
+  onEnd:            (results: RoundResult[]) => void
 }
 
-export function GameScreen({ targets, cursors = [], onCursorMove, onEnd }: Props) {
+export function GameScreen({ targets, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd }: Props) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [secondsLeft, setSecondsLeft]   = useState(GAME_DURATION_S)
   const [feedback, setFeedback]         = useState<Feedback | null>(null)
@@ -125,8 +127,10 @@ export function GameScreen({ targets, cursors = [], onCursorMove, onEnd }: Props
         ref={globeRef}
         onSelect={handleSelect}
         onCursorMove={onCursorMove}
+        onCameraChange={onCameraChange}
         cursors={cursors}
         currentStatus="playing"
+        initialPosition={initialPosition}
         showLabel={false}
         interactive={isLive}
       />

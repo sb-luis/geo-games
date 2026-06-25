@@ -87,6 +87,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (now - lastEmitRef.current < 50) return
     lastEmitRef.current = now
     socketRef.current?.emit('cursor_move', { lat, lng })
+    setSelf(prev => prev ? { ...prev, lat, lng } : prev)
   }, [])
 
   const emitStatus = useCallback((status: 'home' | 'playing') => {

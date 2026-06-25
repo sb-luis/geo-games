@@ -7,13 +7,15 @@ import { AliasSelect } from './AliasSelect'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 interface Props {
-  onStart:       () => void
-  loading?:      boolean
-  countryCount?: number
-  alias:         string | null
-  onAliasSubmit: (alias: string) => void
-  cursors?:      CursorData[]
-  onCursorMove?: (lat: number, lng: number) => void
+  onStart:          () => void
+  loading?:         boolean
+  countryCount?:    number
+  alias:            string | null
+  onAliasSubmit:    (alias: string) => void
+  cursors?:         CursorData[]
+  initialPosition?: { lat: number; lng: number }
+  onCursorMove?:    (lat: number, lng: number) => void
+  onCameraChange?:  (lat: number, lng: number) => void
 }
 
 function formatMs(ms: number): { value: number; unit: string } {
@@ -28,7 +30,9 @@ export function WelcomePage({
   alias,
   onAliasSubmit,
   cursors = [],
+  initialPosition,
   onCursorMove,
+  onCameraChange,
 }: Props) {
   const startRef      = useRef(0)
   const alreadyLoaded = useRef(!loading)
@@ -95,7 +99,7 @@ export function WelcomePage({
             filter: 'drop-shadow(0 16px 40px rgba(66,124,223,0.18)) drop-shadow(0 4px 12px rgba(0,0,0,0.08))',
           }}
         >
-          <PresenceGlobe cursors={cursors} currentStatus="home" onCursorMove={onCursorMove} />
+          <PresenceGlobe cursors={cursors} currentStatus="home" initialPosition={initialPosition} onCursorMove={onCursorMove} onCameraChange={onCameraChange} />
         </div>
       </div>
 

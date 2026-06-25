@@ -15,12 +15,12 @@ import * as THREE from 'three'
 import { GlobeRefLines } from '@/components/globe/GlobeRefLines'
 import { latLonToVec3, vec3ToLatLon } from '@/lib/geo/geometry'
 import { fetchGeo } from '@/lib/geo/fetch'
-import { LEVELS, CAMERA_DIST, MAX_FOV } from '@/lib/geo/lod'
+import { LEVELS, CAMERA_DIST } from '@/lib/geo/lod'
 import { C_OCEAN, C_LAND } from '@/lib/geo/palette'
 import type { WorkerResponse } from '@/workers/geoBuilder.worker'
 import type { CursorData } from '@/lib/multiplayer/types'
 
-// ─── Cursor state (lives outside React for direct DOM updates) ────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface CursorState {
   currentVec: THREE.Vector3
@@ -34,13 +34,7 @@ interface CursorState {
 
 function CursorArrow({ color }: { color: string }) {
   return (
-    <svg
-      width="14"
-      height="18"
-      viewBox="0 0 14 18"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
+    <svg width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M1.5 1.5 L1.5 14 L4.5 11 L7 17.5 L9 16.5 L6.5 10 L12 10 Z"
         fill={color}
@@ -64,35 +58,41 @@ function CursorLabel({ alias, color }: { alias: string; color: string }) {
   )
 }
 
-// ─── R3F scene (geo loading + cursor animation + pointer tracking) ────────────
+// ─── R3F scene ────────────────────────────────────────────────────────────────
 
 interface SceneProps {
-  cursorDataRef:  React.RefObject<Map<string, CursorState>>
-  cursorRefsMap:  React.RefObject<Map<string, HTMLDivElement>>
-  currentStatus:  'home' | 'playing'
-  onCursorMove?:  (lat: number, lng: number) => void
+  cursorDataRef:   React.RefObject<Map<string, CursorState>>
+  cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
+  currentStatus:   'home' | 'playing'
+  onCursorMove?:   (lat: number, lng: number) => void
+  onCameraChange?: (lat: number, lng: number) => void
 }
 
-function PresenceScene({ cursorDataRef, cursorRefsMap, currentStatus, onCursorMove }: SceneProps) {
+function PresenceScene({
+  cursorDataRef,
+  cursorRefsMap,
+  currentStatus,
+  onCursorMove,
+  onCameraChange,
+}: SceneProps) {
   const { scene, camera, size } = useThree()
 
   const mats = useMemo(() => ({
     fill: new THREE.MeshBasicMaterial({ color: C_LAND, side: THREE.DoubleSide }),
   }), [])
 
-  const aliveRef         = useRef(true)
-  const camDir           = useRef(new THREE.Vector3())
-  const tempVec          = useRef(new THREE.Vector3())
-  const onCursorMoveRef  = useRef(onCursorMove)
-  onCursorMoveRef.current = onCursorMove
+  const aliveRef           = useRef(true)
+  const camDir             = useRef(new THREE.Vector3())
+  const tempVec            = useRef(new THREE.Vector3())
+  const lastCamUpdateRef   = useRef(0)
+  const onCursorMoveRef    = useRef(onCursorMove)
+  const onCameraChangeRef  = useRef(onCameraChange)
+  onCursorMoveRef.current  = onCursorMove
+  onCameraChangeRef.current = onCameraChange
 
-  // Geo: load LOD 0, build geometry via worker, add to scene imperatively
   useEffect(() => {
-    const worker = new Worker(
-      new URL('../../workers/geoBuilder.worker.ts', import.meta.url),
-    )
-
-    const fills = new THREE.Group()
+    const worker = new Worker(new URL('../../workers/geoBuilder.worker.ts', import.meta.url))
+    const fills  = new THREE.Group()
 
     const onMessage = (e: MessageEvent<WorkerResponse>) => {
       if (!aliveRef.current) return
@@ -109,10 +109,8 @@ function PresenceScene({ cursorDataRef, cursorRefsMap, currentStatus, onCursorMo
       scene.add(fills)
     }
 
-    const onError = (e: ErrorEvent) => console.error('PresenceGlobe worker error', e.message)
-
     worker.addEventListener('message', onMessage)
-    worker.addEventListener('error', onError)
+    worker.addEventListener('error', (e: ErrorEvent) => console.error('PresenceGlobe worker error', e.message))
 
     fetchGeo(LEVELS[0].url).then(geojson => {
       if (aliveRef.current) worker.postMessage({ level: 0, geojson })
@@ -127,42 +125,33 @@ function PresenceScene({ cursorDataRef, cursorRefsMap, currentStatus, onCursorMo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scene])
 
-  // Cleanup materials
-  useEffect(() => {
-    return () => { mats.fill.dispose() }
-  }, [mats])
+  useEffect(() => () => { mats.fill.dispose() }, [mats])
 
-  // Cursor animation — runs every frame, writes directly to DOM (zero React re-renders)
   useFrame(() => {
-    const pc       = camera as THREE.PerspectiveCamera
-    const vfovRad  = pc.fov * Math.PI / 180
-    const ndcR     = 1 / (CAMERA_DIST * Math.tan(vfovRad / 2))
-    const globeR   = ndcR * size.height / 2
-    const cx       = size.width  / 2
-    const cy       = size.height / 2
+    const pc      = camera as THREE.PerspectiveCamera
+    const vfovRad = pc.fov * Math.PI / 180
+    const ndcR    = 1 / (CAMERA_DIST * Math.tan(vfovRad / 2))
+    const globeR  = ndcR * size.height / 2
+    const cx      = size.width  / 2
+    const cy      = size.height / 2
 
     camDir.current.copy(camera.position).normalize()
 
+    // ── Other visitors ────────────────────────────────────────────────────────
     for (const [id, state] of cursorDataRef.current) {
-      // Smooth lerp toward target
       state.currentVec.lerp(state.targetVec, 0.08).normalize()
-
       const isVisible = state.currentVec.dot(camDir.current) > 0.02
 
-      // Project to screen
       tempVec.current.copy(state.currentVec).project(camera)
       let sx = (tempVec.current.x + 1)  / 2 * size.width
       let sy = (-tempVec.current.y + 1) / 2 * size.height
 
-      // For back-hemisphere cursors, push the whole cursor just outside the globe edge
       if (!isVisible) {
-        const dx   = sx - cx
-        const dy   = sy - cy
+        const dx = sx - cx, dy = sy - cy
         const dist = Math.sqrt(dx * dx + dy * dy)
         if (dist > 0) {
           const r = (globeR * 1.10) / dist
-          sx = cx + dx * r
-          sy = cy + dy * r
+          sx = cx + dx * r; sy = cy + dy * r
         }
       }
 
@@ -171,12 +160,15 @@ function PresenceScene({ cursorDataRef, cursorRefsMap, currentStatus, onCursorMo
 
       el.style.transform = `translate(${sx}px, ${sy}px)`
       el.style.opacity   = state.status === currentStatus ? '1' : '0.35'
+      ;(el.children[1] as HTMLElement).style.transform = 'translate(16px, -2px)'
+    }
 
-      const arrow = el.children[0] as HTMLElement
-      const label = el.children[1] as HTMLElement
-
-      arrow.style.opacity   = '1'
-      label.style.transform = 'translate(16px, -2px)'
+    // ── Camera orientation (throttled 200 ms) ─────────────────────────────────
+    const now = performance.now()
+    if (onCameraChangeRef.current && now - lastCamUpdateRef.current > 200) {
+      lastCamUpdateRef.current = now
+      const { lat, lon } = vec3ToLatLon(camera.position.clone().normalize())
+      onCameraChangeRef.current(lat, lon)
     }
   })
 
@@ -197,54 +189,65 @@ function PresenceScene({ cursorDataRef, cursorRefsMap, currentStatus, onCursorMo
   )
 }
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function latLngToCameraPos(lat: number, lng: number): [number, number, number] {
+  const phi   = (90 - lat) * (Math.PI / 180)
+  const theta = (lng + 180) * (Math.PI / 180)
+  return [
+    -Math.sin(phi) * Math.cos(theta) * CAMERA_DIST,
+     Math.cos(phi) * CAMERA_DIST,
+     Math.sin(phi) * Math.sin(theta) * CAMERA_DIST,
+  ]
+}
+
 // ─── Public component ─────────────────────────────────────────────────────────
 
 interface Props {
-  cursors:       CursorData[]
-  currentStatus: 'home' | 'playing'
-  onCursorMove?: (lat: number, lng: number) => void
+  cursors:          CursorData[]
+  currentStatus:    'home' | 'playing'
+  initialPosition?: { lat: number; lng: number }
+  onCursorMove?:    (lat: number, lng: number) => void
+  onCameraChange?:  (lat: number, lng: number) => void
 }
 
-export function PresenceGlobe({ cursors, currentStatus, onCursorMove }: Props) {
+export function PresenceGlobe({ cursors, currentStatus, initialPosition, onCursorMove, onCameraChange }: Props) {
   const cursorDataRef = useRef<Map<string, CursorState>>(new Map())
   const cursorRefsMap = useRef<Map<string, HTMLDivElement>>(new Map())
   const [cursorIds, setCursorIds] = useState<string[]>([])
 
-  // Sync incoming cursor data to cursorDataRef (targets); React state only for join/leave
+  const cameraPosition = initialPosition
+    ? latLngToCameraPos(initialPosition.lat, initialPosition.lng)
+    : [CAMERA_DIST, 0, 0] as [number, number, number]
+
+  // Sync incoming cursor data
   useEffect(() => {
     const nextIds: string[] = []
-
     for (const c of cursors) {
       nextIds.push(c.id)
-      const target = latLonToVec3(c.lat, c.lng, 1).normalize()
+      const target   = latLonToVec3(c.lat, c.lng, 1).normalize()
       const existing = cursorDataRef.current.get(c.id)
-
       if (existing) {
         existing.targetVec.copy(target)
         existing.alias  = c.alias ?? ''
         existing.status = c.status
       } else {
         cursorDataRef.current.set(c.id, {
-          currentVec: target.clone(),
-          targetVec:  target.clone(),
-          color:      c.color,
-          alias:      c.alias ?? '',
-          status:     c.status,
+          currentVec: target.clone(), targetVec: target.clone(),
+          color: c.color, alias: c.alias ?? '', status: c.status,
         })
       }
     }
-
     for (const id of cursorDataRef.current.keys()) {
       if (!nextIds.includes(id)) cursorDataRef.current.delete(id)
     }
-
     setCursorIds(nextIds)
   }, [cursors])
 
   return (
     <div className="relative w-full h-full">
       <Canvas
-        camera={{ fov: 44, position: [CAMERA_DIST, 0, 0], near: 0.1, far: 100 }}
+        camera={{ fov: 44, position: cameraPosition, near: 0.1, far: 100 }}
         gl={{ antialias: true, alpha: true }}
         style={{ width: '100%', height: '100%', background: 'transparent' }}
       >
@@ -253,10 +256,11 @@ export function PresenceGlobe({ cursors, currentStatus, onCursorMove }: Props) {
           cursorRefsMap={cursorRefsMap}
           currentStatus={currentStatus}
           onCursorMove={onCursorMove}
+          onCameraChange={onCameraChange}
         />
       </Canvas>
 
-      {/* HTML cursor overlays — positioned by useFrame, no React re-renders per frame */}
+      {/* Other visitors */}
       {cursorIds.map(id => {
         const state = cursorDataRef.current.get(id)
         if (!state) return null
@@ -267,25 +271,18 @@ export function PresenceGlobe({ cursors, currentStatus, onCursorMove }: Props) {
               if (el) cursorRefsMap.current.set(id, el as HTMLDivElement)
               else cursorRefsMap.current.delete(id)
             }}
-            style={{
-              position:       'absolute',
-              top:            0,
-              left:           0,
-              pointerEvents:  'none',
-              willChange:     'transform',
-            }}
+            style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
           >
-            {/* Arrow — hidden on back hemisphere */}
             <div style={{ position: 'absolute', top: 0, left: 0 }}>
               <CursorArrow color={state.color} />
             </div>
-            {/* Label — moves to edge when cursor is on back hemisphere */}
             <div style={{ position: 'absolute', top: 0, left: 0 }}>
               <CursorLabel alias={state.alias || '…'} color={state.color} />
             </div>
           </div>
         )
       })}
+
     </div>
   )
 }

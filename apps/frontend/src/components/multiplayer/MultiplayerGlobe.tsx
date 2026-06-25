@@ -128,18 +128,19 @@ export interface MultiplayerGlobeSceneHandle {
 // ─── R3F scene ────────────────────────────────────────────────────────────────
 
 interface SceneProps {
-  onSelect:      (name: string | null) => void
-  onFovChange?:  (fov: number) => void
-  onCursorMove?: (lat: number, lng: number) => void
-  cursorDataRef: React.RefObject<Map<string, CursorState>>
-  cursorRefsMap: React.RefObject<Map<string, HTMLDivElement>>
-  currentStatus: 'home' | 'playing'
-  interactive?:  boolean
+  onSelect:        (name: string | null) => void
+  onFovChange?:    (fov: number) => void
+  onCursorMove?:   (lat: number, lng: number) => void
+  onCameraChange?: (lat: number, lng: number) => void
+  cursorDataRef:   React.RefObject<Map<string, CursorState>>
+  cursorRefsMap:   React.RefObject<Map<string, HTMLDivElement>>
+  currentStatus:   'home' | 'playing'
+  interactive?:    boolean
 }
 
 const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
   function MultiplayerScene(
-    { onSelect, onFovChange, onCursorMove, cursorDataRef, cursorRefsMap, currentStatus, interactive = true },
+    { onSelect, onFovChange, onCursorMove, onCameraChange, cursorDataRef, cursorRefsMap, currentStatus, interactive = true },
     ref,
   ) {
     const interactiveRef = useRef(interactive)
@@ -171,8 +172,11 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     const fovRef           = useRef(MAX_FOV)
     const aliveRef         = useRef(true)
     const flyRafRef        = useRef<number | null>(null)
-    const onCursorMoveRef  = useRef(onCursorMove)
-    onCursorMoveRef.current = onCursorMove
+    const onCursorMoveRef   = useRef(onCursorMove)
+    const onCameraChangeRef = useRef(onCameraChange)
+    const lastCamUpdateRef  = useRef(0)
+    onCursorMoveRef.current  = onCursorMove
+    onCameraChangeRef.current = onCameraChange
 
     const pc = camera as THREE.PerspectiveCamera
 
@@ -507,6 +511,14 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
         arrow.style.opacity   = '1'
         label.style.transform = 'translate(16px, -2px)'
       }
+
+      // ── Camera orientation (throttled 200 ms) ────────────────────────────────
+      const now = performance.now()
+      if (onCameraChangeRef.current && now - lastCamUpdateRef.current > 200) {
+        lastCamUpdateRef.current = now
+        const { lat, lon } = vec3ToLatLon(camera.position.clone().normalize())
+        onCameraChangeRef.current(lat, lon)
+      }
     })
 
     const handleDoubleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
@@ -563,17 +575,19 @@ export interface MultiplayerGlobeHandle {
 }
 
 interface Props {
-  onSelect?:     (name: string | null) => void
-  onCursorMove?: (lat: number, lng: number) => void
-  cursors?:      CursorData[]
-  currentStatus: 'home' | 'playing'
-  showLabel?:    boolean
-  interactive?:  boolean
+  onSelect?:        (name: string | null) => void
+  onCursorMove?:    (lat: number, lng: number) => void
+  onCameraChange?:  (lat: number, lng: number) => void
+  cursors?:         CursorData[]
+  currentStatus:    'home' | 'playing'
+  initialPosition?: { lat: number; lng: number }
+  showLabel?:       boolean
+  interactive?:     boolean
 }
 
 export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
   function MultiplayerGlobe(
-    { onSelect, onCursorMove, cursors = [], currentStatus, showLabel = true, interactive = true },
+    { onSelect, onCursorMove, onCameraChange, cursors = [], currentStatus, initialPosition, showLabel = true, interactive = true },
     ref,
   ) {
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -637,10 +651,22 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
       setCursorIds(nextIds)
     }, [cursors])
 
+    const cameraPosition: [number, number, number] = initialPosition
+      ? (() => {
+          const phi   = (90 - initialPosition.lat) * (Math.PI / 180)
+          const theta = (initialPosition.lng + 180) * (Math.PI / 180)
+          return [
+            -Math.sin(phi) * Math.cos(theta) * CAMERA_DIST,
+             Math.cos(phi) * CAMERA_DIST,
+             Math.sin(phi) * Math.sin(theta) * CAMERA_DIST,
+          ]
+        })()
+      : [CAMERA_DIST, 0, 0]
+
     return (
       <div className="relative w-full h-full">
         <Canvas
-          camera={{ fov: MAX_FOV, position: [CAMERA_DIST, 0, 0], near: 0.1, far: 100 }}
+          camera={{ fov: MAX_FOV, position: cameraPosition, near: 0.1, far: 100 }}
           gl={{ antialias: true }}
           style={{ width: '100%', height: '100%' }}
         >
@@ -649,6 +675,7 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
             onSelect={handleSelect}
             onFovChange={handleFovChange}
             onCursorMove={onCursorMove}
+            onCameraChange={onCameraChange}
             cursorDataRef={cursorDataRef}
             cursorRefsMap={cursorRefsMap}
             currentStatus={currentStatus}
@@ -695,13 +722,7 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
                 if (el) cursorRefsMap.current.set(id, el as HTMLDivElement)
                 else cursorRefsMap.current.delete(id)
               }}
-              style={{
-                position:      'absolute',
-                top:           0,
-                left:          0,
-                pointerEvents: 'none',
-                willChange:    'transform',
-              }}
+              style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', willChange: 'transform' }}
             >
               <div style={{ position: 'absolute', top: 0, left: 0 }}>
                 <CursorArrow color={state.color} />
@@ -712,6 +733,7 @@ export const MultiplayerGlobe = forwardRef<MultiplayerGlobeHandle, Props>(
             </div>
           )
         })}
+
       </div>
     )
   },
