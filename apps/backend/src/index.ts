@@ -38,7 +38,7 @@ io.on('connection', (socket) => {
   colorIndex++
   visitors.set(socket.id, visitor)
 
-  socket.emit('init', { self: visitor, visitors: [...visitors.values()] })
+  socket.emit('init', { self: visitor, visitors: [...visitors.values()].filter(v => v.id !== socket.id) })
   socket.broadcast.emit('visitor_joined', visitor)
 
   socket.on('set_alias', (alias: unknown) => {
