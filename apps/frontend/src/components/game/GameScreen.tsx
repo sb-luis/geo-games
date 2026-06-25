@@ -69,7 +69,6 @@ export function GameScreen({ targets, cursors = [], initialPosition, onCursorMov
 
   const advance = useCallback(() => {
     if (endedRef.current) return
-    globeRef.current?.clearHighlight()
     setCurrentIndex(prev => {
       const next = prev + 1
       currentIndexRef.current = next

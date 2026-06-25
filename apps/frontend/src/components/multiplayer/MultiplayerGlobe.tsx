@@ -167,8 +167,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     const currentLevelRef  = useRef(-1)
     const selectedNameRef  = useRef<string | null>(null)
     const selectedGroupRef = useRef<THREE.Group | null>(null)
-    const gameHlNameRef    = useRef<string | null>(null)
-    const gameHlMatRef     = useRef<THREE.MeshBasicMaterial | null>(null)
+    const gameHlsRef       = useRef<Map<string, THREE.MeshBasicMaterial>>(new Map())
     const fovRef           = useRef(MAX_FOV)
     const aliveRef         = useRef(true)
     const flyRafRef        = useRef<number | null>(null)
@@ -199,28 +198,27 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
     }, [mats])
 
     const clearGameHighlight = useCallback(() => {
-      if (!gameHlNameRef.current) return
-      for (let i = 0; i < 3; i++) {
-        const d = lodDataRef.current[i]
-        if (d) {
-          const g = d.fillMap.get(gameHlNameRef.current!)
-          if (g) applyMat(g, mats.fillDim)
+      for (const [name] of gameHlsRef.current) {
+        for (let i = 0; i < 3; i++) {
+          const d = lodDataRef.current[i]
+          if (d) {
+            const g = d.fillMap.get(name)
+            if (g) applyMat(g, mats.fillDim)
+          }
         }
       }
-      gameHlNameRef.current = null
-      gameHlMatRef.current  = null
+      gameHlsRef.current.clear()
     }, [mats])
 
     const restoreGameHighlight = useCallback((fillMap: Map<string, THREE.Group>) => {
-      if (!gameHlNameRef.current || !gameHlMatRef.current) return
-      const g = fillMap.get(gameHlNameRef.current)
-      if (g) applyMat(g, gameHlMatRef.current)
+      for (const [name, mat] of gameHlsRef.current) {
+        const g = fillMap.get(name)
+        if (g) applyMat(g, mat)
+      }
     }, [])
 
     const setGameHighlight = useCallback((name: string, mat: THREE.MeshBasicMaterial) => {
-      clearGameHighlight()
-      gameHlNameRef.current = name
-      gameHlMatRef.current  = mat
+      gameHlsRef.current.set(name, mat)
       for (let i = 0; i < 3; i++) {
         const d = lodDataRef.current[i]
         if (d) {
@@ -228,7 +226,7 @@ const MultiplayerScene = forwardRef<MultiplayerGlobeSceneHandle, SceneProps>(
           if (g) applyMat(g, mat)
         }
       }
-    }, [clearGameHighlight])
+    }, [])
 
     const applyLod = useCallback((level: number) => {
       const data = lodDataRef.current[level]
