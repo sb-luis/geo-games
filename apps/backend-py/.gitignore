@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+pygeoapi.log
+pygeoapi.openapi.yml
+
+.DS_STORE
+
+/data
+
+*.log
