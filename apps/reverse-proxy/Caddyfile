@@ -15,8 +15,13 @@
         format console # set access log format to console mode
     }
 
-    # Handle API requests
-    reverse_proxy /api/* {$BACKEND_ENDPOINT}
+    # Handle API requests — handle_path strips the /api prefix before forwarding
+    handle_path /api/* {
+        reverse_proxy {$BACKEND_ENDPOINT}
+    }
+
+    # WebSocket connection — proxied directly, no prefix to strip
+    reverse_proxy /ws {$BACKEND_ENDPOINT}
 
     # Handle geo data API requests — handle_path strips the /geo prefix before forwarding
     handle_path /geo/* {

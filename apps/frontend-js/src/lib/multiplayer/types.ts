@@ -7,6 +7,7 @@ export interface Visitor {
   lat: number | null
   lng: number | null
   status: UserStatus
+  authenticated: boolean
 }
 
 export interface CursorData {

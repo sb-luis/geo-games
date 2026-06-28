@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
+import { Button } from '@/components/ui/Button'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 interface Props {
@@ -33,29 +34,27 @@ export function WelcomePage({
   onCursorMove,
   onCameraChange,
 }: Props) {
-  const startRef      = useRef(0)
-  const alreadyLoaded = useRef(!loading)
-
-  useEffect(() => { startRef.current = performance.now() }, [])
+  // Captured synchronously at mount — no effect needed, no risk of a
+  // stale-zero if the interval fires before useEffect runs.
+  const [loadStartMs] = useState(() => performance.now())
 
   const [liveMs, setLiveMs]               = useState(0)
   const [fetchMs, setFetchMs]             = useState<number | null>(null)
   const [animatedCount, setAnimatedCount] = useState(0)
 
   useEffect(() => {
-    if (alreadyLoaded.current || !loading) return
+    if (!loading) return
     const id = setInterval(
-      () => setLiveMs(Math.round(performance.now() - startRef.current)),
+      () => setLiveMs(Math.round(performance.now() - loadStartMs)),
       80,
     )
     return () => clearInterval(id)
-  }, [loading])
+  }, [loading, loadStartMs])
 
   useEffect(() => {
-    if (alreadyLoaded.current) return
     if (!loading && countryCount > 0 && fetchMs === null)
-      setFetchMs(Math.round(performance.now() - startRef.current))
-  }, [loading, countryCount, fetchMs])
+      setFetchMs(Math.round(performance.now() - loadStartMs))
+  }, [loading, countryCount, fetchMs, loadStartMs])
 
   useEffect(() => {
     if (countryCount > 0) setAnimatedCount(countryCount)
@@ -107,29 +106,20 @@ export function WelcomePage({
         loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
       }`}>
         <div className="flex flex-col gap-2">
-          <button
-            onClick={onStart}
-            className="w-full py-3 rounded-full bg-gray-900 text-white font-semibold text-base hover:bg-gray-700 active:scale-95 transition-all duration-150"
-          >
-            play 
-          </button>
+          <Button size="lg" onClick={onStart} className="w-full">
+            play
+          </Button>
           {(onPractice || onExplore) && (
             <div className="flex gap-2">
               {onPractice && (
-                <button
-                  onClick={onPractice}
-                  className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
-                >
+                <Button size="lg" variant="secondary" onClick={onPractice} className="flex-1">
                   practice
-                </button>
+                </Button>
               )}
               {onExplore && (
-                <button
-                  onClick={onExplore}
-                  className="flex-1 py-3 rounded-full border border-gray-200 text-gray-500 font-medium text-base hover:bg-gray-50 active:scale-95 transition-all duration-150"
-                >
+                <Button size="lg" variant="secondary" onClick={onExplore} className="flex-1">
                   explore
-                </button>
+                </Button>
               )}
             </div>
           )}

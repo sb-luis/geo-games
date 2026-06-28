@@ -1,0 +1,79 @@
+services:
+  reverse-proxy:
+    container_name: where-in-world-proxy
+    build:
+      context: ./apps/reverse-proxy
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+      - "8080:8080"
+    volumes:
+      - ./apps/reverse-proxy/Caddyfile:/etc/caddy/Caddyfile
+      - ./apps/reverse-proxy/caddy_data:/data
+      - ./apps/reverse-proxy/caddy_config:/config
+    environment:
+      - PORT=8080
+      - FRONTEND_ENDPOINT=http://frontend:3000
+      - BACKEND_ENDPOINT=http://backend:4000
+      - BACKEND_GEO_ENDPOINT=http://backend-geo:4100
+
+  frontend:
+    container_name: where-in-world-frontend
+    build:
+      context: ./apps/frontend-js
+      dockerfile: Dockerfile
+    environment:
+      - PORT=3000
+      - BACKEND_URL=http://backend:4000
+      - BACKEND_GEO_URL=http://backend-geo:4100
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    container_name: where-in-world-backend
+    build:
+      context: ./apps/backend-go
+      dockerfile: Dockerfile
+    environment:
+      - PORT=4000
+      - DATABASE_URL=postgres://wiw_user:wiw_password@postgres:5432/wiw_db?sslmode=disable
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost
+      - COOKIE_SECURE=false
+    ports:
+      - '4000:4000'
+    depends_on:
+      - postgres
+
+  backend-geo:
+    container_name: where-in-world-backend-geo
+    build:
+      context: ./apps/backend-py
+      dockerfile: Dockerfile
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4100
+      - DATA_DIR=/data/natural_earth
+    volumes:
+      - ./apps/backend-ogc/data/natural_earth:/data/natural_earth:ro
+    ports:
+      - '4100:4100'
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: where-in-world-postgres
+    environment:
+      POSTGRES_USER: wiw_user
+      POSTGRES_PASSWORD: wiw_password
+      POSTGRES_DB: wiw_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
