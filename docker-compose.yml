@@ -27,8 +27,6 @@ services:
       dockerfile: Dockerfile
     environment:
       - PORT=3000
-      - BACKEND_URL=http://backend:4000
-      - BACKEND_GEO_URL=http://backend-geo:4100
     ports:
       - "3000:3000"
     depends_on:

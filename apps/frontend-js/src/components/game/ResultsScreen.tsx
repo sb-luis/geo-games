@@ -32,7 +32,7 @@ export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onRetur
   const handleShare = useCallback(async () => {
     const correctItems = results.filter(r => r.outcome === 'correct')
     const lines = [
-      `🌍 where in world? — ${mode === 'practice' ? `practice (${elapsedSeconds != null ? formatElapsed(elapsedSeconds) : '?'})` : '1 min'}`,
+      `🌍 where.name — ${mode === 'practice' ? `practice (${elapsedSeconds != null ? formatElapsed(elapsedSeconds) : '?'})` : '1 min'}`,
       ``,
       `${correct} correct · ${skipped} skipped · ${wrong} wrong`,
       ``,
