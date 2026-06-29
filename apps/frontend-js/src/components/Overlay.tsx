@@ -1,6 +1,5 @@
 'use client'
 
-import { AuthButton } from '@/components/auth/AuthButton'
 import { Button } from '@/components/ui/Button'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 
@@ -9,8 +8,6 @@ export function Overlay() {
 
   return (
     <>
-      <AuthButton />
-
       {sessionInactive && (
         <div className="fixed bottom-6 left-0 right-0 z-40 flex justify-center">
           <div className="flex items-center gap-3 bg-white/90 backdrop-blur-sm rounded-full px-5 py-2.5 shadow-md">

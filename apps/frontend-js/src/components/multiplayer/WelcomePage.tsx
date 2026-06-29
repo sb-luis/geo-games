@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import NumberFlow from '@number-flow/react'
 import { PresenceGlobe } from './PresenceGlobe'
 import { Button } from '@/components/ui/Button'
+import { AuthButton } from '@/components/auth/AuthButton'
 import type { CursorData } from '@/lib/multiplayer/types'
 
 interface Props {
@@ -66,6 +67,7 @@ export function WelcomePage({
 
   return (
     <main className="w-screen h-dvh bg-[#f3f3f3] flex flex-col items-center justify-between py-12 px-6">
+      <AuthButton />
 
       {/* ── Title ── */}
       <div className="text-center space-y-2">
