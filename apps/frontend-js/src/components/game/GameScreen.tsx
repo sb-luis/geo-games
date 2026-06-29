@@ -23,7 +23,7 @@ interface Props {
   initialPosition?: { lat: number; lng: number }
   onCursorMove?:    (lat: number, lng: number) => void
   onCameraChange?:  (lat: number, lng: number) => void
-  onEnd:            (results: RoundResult[], elapsedSeconds?: number) => void
+  onEnd:            (results: RoundResult[], elapsedMs?: number) => void
   onQuit?:          () => void  // if provided, Quit goes here instead of onEnd (play mode: back to home)
 }
 
@@ -88,7 +88,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
     if (practice && next >= targets.length) {
       endedRef.current = true
       setFeedback(null)
-      onEndRef.current([...resultsRef.current], Math.floor((Date.now() - gameStartRef.current) / 1000))
+      onEndRef.current([...resultsRef.current], Date.now() - gameStartRef.current)
       return
     }
     setCurrentIndex(next)
@@ -100,7 +100,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
   const handleSkip = useCallback(() => {
     if (doneRef.current || endedRef.current) return
     doneRef.current = true
-    resultsRef.current.push({ country: targets[currentIndexRef.current], outcome: 'skipped' })
+    resultsRef.current.push({ country: targets[currentIndexRef.current], outcome: 'skipped', timeMs: Math.round(performance.now() - startTimeRef.current) })
     advance()
   }, [targets, advance])
 
@@ -113,7 +113,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
     if (onQuitRef.current) {
       onQuitRef.current()
     } else {
-      onEndRef.current([...resultsRef.current], Math.floor((Date.now() - gameStartRef.current) / 1000))
+      onEndRef.current([...resultsRef.current], Date.now() - gameStartRef.current)
     }
   }, [])
 
@@ -125,7 +125,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
     resultsRef.current.push({
       country,
       outcome: correct ? 'correct' : 'wrong',
-      ...(correct && { timeMs: Math.round(performance.now() - startTimeRef.current) }),
+      timeMs: Math.round(performance.now() - startTimeRef.current),
     })
     setFeedback({ correct, clicked: correct ? null : name })
     setIsLive(false)
@@ -178,7 +178,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
                   transition-all duration-300 select-none
                   bg-black/6 text-gray-600 cursor-pointer hover:bg-black/10 active:scale-95"
               >
-                Quit
+                {practice ? 'Stop' : 'Quit'}
               </button>
               <button
                 onClick={handleSkip}

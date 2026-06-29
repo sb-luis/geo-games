@@ -18,11 +18,11 @@ interface GameContextValue {
   targets:              string[]
   results:              RoundResult[] | null
   mode:                 'timed' | 'practice'
-  elapsedSeconds:       number | null
+  elapsedMs:            number | null
   startGame:            () => void
   startPractice:        () => void
   setResults:           (results: RoundResult[]) => void
-  setElapsedSeconds:    (s: number | null) => void
+  setElapsedMs:         (ms: number | null) => void
   cameraOrientationRef: React.MutableRefObject<LatLng | null>
 }
 
@@ -33,13 +33,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [targets, setTargets]                 = useState<string[]>([])
   const [results, setResults]                 = useState<RoundResult[] | null>(null)
   const [mode, setMode]                       = useState<'timed' | 'practice'>('timed')
-  const [elapsedSeconds, setElapsedSeconds]   = useState<number | null>(null)
+  const [elapsedMs, setElapsedMs]             = useState<number | null>(null)
   const cameraOrientationRef                  = useRef<LatLng | null>(null)
 
   const startGame = useCallback(() => {
     if (!countryNames.length) return
     setMode('timed')
-    setElapsedSeconds(null)
+    setElapsedMs(null)
     setTargets(pickRandom(countryNames, countryNames.length))
     setResults(null)
   }, [countryNames])
@@ -47,13 +47,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const startPractice = useCallback(() => {
     if (!countryNames.length) return
     setMode('practice')
-    setElapsedSeconds(null)
+    setElapsedMs(null)
     setTargets(pickRandom(countryNames, countryNames.length))
     setResults(null)
   }, [countryNames])
 
   return (
-    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedSeconds, startGame, startPractice, setResults, setElapsedSeconds, cameraOrientationRef }}>
+    <GameContext.Provider value={{ countryNames, targets, results, mode, elapsedMs, startGame, startPractice, setResults, setElapsedMs, cameraOrientationRef }}>
       {children}
     </GameContext.Provider>
   )

@@ -1,42 +1,46 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
-import NumberFlow from '@number-flow/react'
+import { useState, useCallback } from 'react'
+import { PracticeResults } from './PracticeResults'
+import { PlayResults } from './PlayResults'
 import type { RoundResult } from '@/lib/game/types'
+import type { CountryStat } from '@/components/stats/WorldMap'
+import type { GeoCollection } from '@/lib/geo/types'
 
-interface Props {
-  results:         RoundResult[]
-  mode?:           'timed' | 'practice'
-  elapsedSeconds?: number
-  onReturn:      () => void
+interface PracticeStatsResponse {
+  games_played:    number
+  games_completed: number
+  countries:       CountryStat[]
 }
 
-function formatElapsed(s: number): string {
+interface Props {
+  results:        RoundResult[]
+  mode?:          'timed' | 'practice'
+  elapsedMs?:     number
+  geo?:           GeoCollection
+  practiceStats?: PracticeStatsResponse
+  onReturn:       () => void
+}
+
+function formatElapsed(ms: number): string {
+  const s = Math.floor(ms / 1000)
   if (s < 60) return `${s}s`
   return `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
-export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onReturn }: Props) {
-  const correct = results.filter(r => r.outcome === 'correct').length
-  const skipped = results.filter(r => r.outcome === 'skipped').length
-  const wrong   = results.filter(r => r.outcome === 'wrong').length
-
-  const [displayScore, setDisplayScore] = useState(0)
+export function ResultsScreen({ results, mode = 'timed', elapsedMs, geo, practiceStats, onReturn }: Props) {
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    const t = setTimeout(() => setDisplayScore(correct), 150)
-    return () => clearTimeout(t)
-  }, [correct])
-
   const handleShare = useCallback(async () => {
-    const correctItems = results.filter(r => r.outcome === 'correct')
+    const correct = results.filter(r => r.outcome === 'correct')
+    const wrong   = results.filter(r => r.outcome === 'wrong').length
+    const skipped = results.filter(r => r.outcome === 'skipped').length
     const lines = [
-      `🌍 where.name — ${mode === 'practice' ? `practice (${elapsedSeconds != null ? formatElapsed(elapsedSeconds) : '?'})` : '1 min'}`,
+      `🌍 where.name — ${mode === 'practice' ? `practice (${elapsedMs != null ? formatElapsed(elapsedMs) : '?'})` : '1 min'}`,
       ``,
-      `${correct} correct · ${skipped} skipped · ${wrong} wrong`,
+      `${correct.length} correct · ${skipped} skipped · ${wrong} wrong`,
       ``,
-      ...correctItems.map(r => `${r.country} (${((r.timeMs ?? 0) / 1000).toFixed(1)}s)`),
+      ...correct.map(r => `${r.country} (${(r.timeMs / 1000).toFixed(1)}s)`),
     ]
     try {
       await navigator.clipboard.writeText(lines.join('\n'))
@@ -45,63 +49,42 @@ export function ResultsScreen({ results, mode = 'timed', elapsedSeconds, onRetur
     } catch {
       // clipboard unavailable
     }
-  }, [results, correct, skipped, wrong])
+  }, [results, mode, elapsedMs])
 
   return (
-    <main className="w-screen h-dvh bg-[#f3f3f3] flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
+    <main className="h-dvh overflow-y-auto bg-[#f3f3f3] px-4 py-5 md:px-6">
+      <div className="max-w-2xl mx-auto space-y-4 pb-10">
 
-        {/* Score */}
-        <div className="text-center pb-6 border-b border-gray-100">
-          <p className="text-xs font-medium text-gray-400 uppercase tracking-widest mb-3">
+        {/* Top bar */}
+        <div className="w-full rounded-2xl bg-white shadow-sm border border-gray-100 px-5 py-3 flex items-center">
+          <button
+            onClick={onReturn}
+            className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
+          >
+            ← back
+          </button>
+          <p className="flex-1 text-center text-sm font-semibold text-gray-500 uppercase tracking-widest">
             {mode === 'practice' ? 'Practice' : '1 minute'}
           </p>
-          <div className="text-5xl font-black text-gray-900 tabular-nums">
-            <NumberFlow value={displayScore} />
-          </div>
-          <p className="text-base text-gray-400 mt-1">
-            {correct === 1 ? 'country' : 'countries'} guessed
-          </p>
-          {(skipped > 0 || wrong > 0) && (
-            <p className="text-sm text-gray-300 mt-2 tabular-nums">
-              {skipped > 0 && `${skipped} skipped`}
-              {skipped > 0 && wrong > 0 && ' · '}
-              {wrong > 0 && `${wrong} wrong`}
-            </p>
-          )}
-        </div>
-
-        {/* Country list */}
-        <ul className="py-4 space-y-1 max-h-64 overflow-y-auto pr-2">
-          {results.map((r, i) => (
-            <li key={i} className="flex items-center justify-between py-1 text-sm">
-              <span className={r.outcome === 'correct' ? 'text-gray-800' : 'text-gray-300'}>
-                {r.country}
-              </span>
-              <span className={`tabular-nums text-xs shrink-0 ml-3 ${r.outcome === 'correct' ? 'text-gray-400' : 'text-gray-200'}`}>
-                {r.outcome === 'correct'
-                  ? `${((r.timeMs ?? 0) / 1000).toFixed(1)}s`
-                  : r.outcome === 'skipped' ? 'skip' : '✗'}
-              </span>
-            </li>
-          ))}
-        </ul>
-
-        {/* Actions */}
-        <div className="flex gap-3 pt-4 border-t border-gray-100">
           <button
             onClick={handleShare}
-            className="flex-1 py-2.5 rounded-full border border-gray-200 text-gray-500 text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="rounded-full px-4 py-1.5 text-sm font-semibold text-gray-600 bg-black/6 hover:bg-black/10 active:scale-95 transition-all duration-300 select-none"
           >
             {copied ? 'copied!' : 'share'}
           </button>
-          <button
-            onClick={onReturn}
-            className="flex-1 py-2.5 rounded-full bg-gray-900 text-white text-sm font-semibold hover:bg-gray-700 active:scale-95 transition-all duration-150"
-          >
-            back 
-          </button>
         </div>
+
+        {/* Mode-specific content */}
+        {mode === 'practice' ? (
+          <PracticeResults
+            results={results}
+            elapsedMs={elapsedMs}
+            geo={geo}
+            practiceStats={practiceStats}
+          />
+        ) : (
+          <PlayResults results={results} />
+        )}
 
       </div>
     </main>

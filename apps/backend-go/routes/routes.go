@@ -9,8 +9,10 @@ import (
 )
 
 func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrigins []string) {
-	auth := handlers.NewAuthHandler(s)
-	ws := handlers.NewWSHandler(hub, s, allowedOrigins)
+	auth     := handlers.NewAuthHandler(s)
+	practice := handlers.NewPracticeHandler(s)
+	stats    := handlers.NewStatsHandler(s)
+	ws       := handlers.NewWSHandler(hub, s, allowedOrigins)
 
 	authMiddleware := middleware.Auth(s)
 
@@ -21,6 +23,9 @@ func Register(mux *http.ServeMux, s *store.Store, hub *handlers.Hub, allowedOrig
 	mux.Handle("POST /auth/logout", authMiddleware(http.HandlerFunc(auth.Logout)))
 	mux.Handle("GET /auth/me", authMiddleware(http.HandlerFunc(auth.GetMe)))
 	mux.Handle("PATCH /auth/me", authMiddleware(http.HandlerFunc(auth.UpdateMe)))
+
+	mux.Handle("POST /practice/games", authMiddleware(http.HandlerFunc(practice.CreateGame)))
+	mux.Handle("GET /practice/stats", authMiddleware(http.HandlerFunc(stats.GetPracticeStats)))
 
 	mux.Handle("GET /ws", authMiddleware(ws))
 }

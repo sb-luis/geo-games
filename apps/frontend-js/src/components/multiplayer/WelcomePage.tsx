@@ -71,7 +71,7 @@ export function WelcomePage({
     <div className="h-dvh flex flex-col bg-[#f3f3f3]">
       <Header><AuthButton /></Header>
 
-      <main className="flex-1 min-h-0 flex flex-col items-center justify-center gap-5 px-6 py-4">
+      <main className="flex-1 min-h-0 flex flex-col items-center justify-between px-6 py-8">
 
         {/* ── Title ── */}
         <div className="text-center space-y-1">
@@ -87,8 +87,8 @@ export function WelcomePage({
               <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-gray-900 tabular-nums">
                 <NumberFlow value={animatedCount} /> countries ready
               </h1>
-              <p className="text-sm text-gray-500">
-                how many can you guess in 1 minute?
+              <p className="text-lg text-gray-500">
+                how many can you find?
               </p>
             </>
           )}
@@ -110,9 +110,6 @@ export function WelcomePage({
           loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
         }`}>
           <div className="flex flex-col gap-2">
-            <Button size="lg" onClick={onStart} className="w-full">
-              <span>play</span>
-            </Button>
             {(onPractice || onExplore) && (
               <div className="flex gap-2">
                 {onPractice && (
