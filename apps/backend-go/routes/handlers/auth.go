@@ -93,10 +93,18 @@ func verifyPassword(password, encoded string) (bool, error) {
 
 // --- helpers ---
 
-const maxBodyBytes = 4 * 1024 // 4 KB — generous for any valid JSON auth payload
+const (
+	maxBodyBytesSmall = 4 * 1024    // 4 KB  — auth/small payloads
+	maxBodyBytesLarge = 1024 * 1024 // 1 MB — very geneour long practice games
+)
 
 func readBody(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytesSmall)
+	return json.NewDecoder(r.Body).Decode(dst)
+}
+
+func readBodyLarge(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytesLarge)
 	return json.NewDecoder(r.Body).Decode(dst)
 }
 

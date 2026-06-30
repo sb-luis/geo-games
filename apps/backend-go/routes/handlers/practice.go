@@ -34,7 +34,7 @@ func (h *PracticeHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 			DurationMs int64  `json:"duration_ms"`
 		} `json:"rounds"`
 	}
-	if err := readBody(w, r, &body); err != nil {
+	if err := readBodyLarge(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
