@@ -17,19 +17,26 @@ interface Feedback {
 }
 
 interface Props {
-  targets:          string[]
-  practice?:        boolean
-  cursors?:         CursorData[]
-  initialPosition?: { lat: number; lng: number }
-  onCursorMove?:    (lat: number, lng: number) => void
-  onCameraChange?:  (lat: number, lng: number) => void
-  onEnd:            (results: RoundResult[], elapsedMs?: number) => void
-  onQuit?:          () => void  // if provided, Quit goes here instead of onEnd (play mode: back to home)
+  targets:                string[]
+  practice?:              boolean
+  practiceTimeLimitMs?:   number | null
+  cursors?:               CursorData[]
+  initialPosition?:       { lat: number; lng: number }
+  onCursorMove?:          (lat: number, lng: number) => void
+  onCameraChange?:        (lat: number, lng: number) => void
+  onEnd:                  (results: RoundResult[], elapsedMs?: number) => void
+  onQuit?:                () => void  // if provided, Quit goes here instead of onEnd (play mode: back to home)
 }
 
-export function GameScreen({ targets, practice = false, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd, onQuit }: Props) {
+export function GameScreen({ targets, practice = false, practiceTimeLimitMs = null, cursors = [], initialPosition, onCursorMove, onCameraChange, onEnd, onQuit }: Props) {
+  const practiceCountdown = practice && practiceTimeLimitMs != null
+
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [displaySeconds, setDisplaySeconds] = useState(practice ? 0 : GAME_DURATION_S)
+  const [displaySeconds, setDisplaySeconds] = useState(() => {
+    if (!practice) return GAME_DURATION_S
+    if (practiceCountdown) return Math.ceil(practiceTimeLimitMs / 1000)
+    return 0
+  })
   const [feedback, setFeedback]         = useState<Feedback | null>(null)
   const [isLive, setIsLive]             = useState(false)
 
@@ -38,9 +45,9 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
   const startTimeRef    = useRef(performance.now())
   const doneRef         = useRef(false)
   const endedRef        = useRef(false)
-  // timed mode: when the game ends (absolute timestamp)
-  const gameEndRef      = useRef(Date.now() + GAME_DURATION_S * 1000)
-  // practice mode: when the game started (adjusted to exclude paused time)
+  // timed mode or practice countdown: when the game ends (absolute timestamp)
+  const gameEndRef      = useRef(Date.now() + (practiceCountdown ? practiceTimeLimitMs : GAME_DURATION_S * 1000))
+  // free practice mode: when the game started (adjusted to exclude paused time)
   const gameStartRef    = useRef(Date.now())
   const pausedAtRef     = useRef<number | null>(null)
   const globeRef        = useRef<MultiplayerGlobeHandle>(null)
@@ -51,7 +58,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
   useEffect(() => {
     const id = setInterval(() => {
       if (pausedAtRef.current !== null) return
-      if (practice) {
+      if (practice && !practiceCountdown) {
         setDisplaySeconds(Math.floor((Date.now() - gameStartRef.current) / 1000))
       } else {
         const remaining = Math.ceil((gameEndRef.current - Date.now()) / 1000)
@@ -60,18 +67,19 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
         if (clamped === 0 && !endedRef.current) {
           endedRef.current = true
           clearInterval(id)
-          onEndRef.current([...resultsRef.current])
+          const elapsed = practiceCountdown ? practiceTimeLimitMs! : undefined
+          onEndRef.current([...resultsRef.current], elapsed)
         }
       }
     }, 200)
     return () => clearInterval(id)
-  }, [practice])
+  }, [practice, practiceCountdown])
 
   // Each new country: go live immediately, unpausing the clock if it was paused
   useEffect(() => {
     if (pausedAtRef.current !== null) {
       const pausedDuration = Date.now() - pausedAtRef.current
-      if (practice) {
+      if (practice && !practiceCountdown) {
         gameStartRef.current += pausedDuration  // shift start forward to exclude pause
       } else {
         gameEndRef.current += pausedDuration    // shift end forward to exclude pause
@@ -79,7 +87,7 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
       pausedAtRef.current = null
     }
     setIsLive(true)
-  }, [currentIndex, practice])
+  }, [currentIndex, practice, practiceCountdown])
 
   const advance = useCallback(() => {
     if (endedRef.current) return
@@ -88,14 +96,17 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
     if (practice && next >= targets.length) {
       endedRef.current = true
       setFeedback(null)
-      onEndRef.current([...resultsRef.current], Date.now() - gameStartRef.current)
+      const elapsed = practiceCountdown
+        ? practiceTimeLimitMs! - Math.max(0, gameEndRef.current - Date.now())
+        : Date.now() - gameStartRef.current
+      onEndRef.current([...resultsRef.current], elapsed)
       return
     }
     setCurrentIndex(next)
     doneRef.current = false
     startTimeRef.current = performance.now()
     setFeedback(null)
-  }, [practice, targets.length])
+  }, [practice, practiceCountdown, practiceTimeLimitMs, targets.length])
 
   const handleSkip = useCallback(() => {
     if (doneRef.current || endedRef.current) return
@@ -200,13 +211,11 @@ export function GameScreen({ targets, practice = false, cursors = [], initialPos
             <span className={`text-sm font-semibold tabular-nums transition-colors duration-300 ${
               !isLive
                 ? 'text-gray-300'
-                : practice
-                  ? 'text-gray-500'
-                  : displaySeconds <= 10
-                    ? 'text-rose-400'
-                    : 'text-gray-500'
+                : (practiceCountdown || !practice) && displaySeconds <= 10
+                  ? 'text-rose-400'
+                  : 'text-gray-500'
             }`}>
-              {practice && displaySeconds >= 60
+              {displaySeconds >= 60
                 ? <><NumberFlow value={Math.floor(displaySeconds / 60)} />m <NumberFlow value={displaySeconds % 60} />s</>
                 : <><NumberFlow value={displaySeconds} />s</>
               }

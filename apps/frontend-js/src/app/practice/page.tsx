@@ -35,7 +35,7 @@ export default function PracticePage() {
   const router                                = useRouter()
   const { emitCursorMove, emitStatus }        = useSocket()
   const { cursors }                           = usePresence()
-  const { targets, setResults, setElapsedMs, cameraOrientationRef } = useGame()
+  const { targets, setResults, setElapsedMs, cameraOrientationRef, practiceTimeLimitMs } = useGame()
   const { user }                              = useAuth()
 
   useEffect(() => { emitStatus('practice') }, [emitStatus])
@@ -58,6 +58,7 @@ export default function PracticePage() {
   return (
     <GameScreen
       practice
+      practiceTimeLimitMs={practiceTimeLimitMs}
       targets={targets}
       cursors={cursors}
       initialPosition={initialPosition}

@@ -1,8 +1,9 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { WelcomePage } from '@/components/multiplayer/WelcomePage'
+import { PracticeTimeLimitModal } from '@/components/ui/PracticeTimeLimitModal'
 import { useSocket } from '@/lib/multiplayer/SocketContext'
 import { usePresence } from '@/lib/multiplayer/usePresence'
 import { useGame } from '@/lib/game/GameContext'
@@ -19,6 +20,7 @@ export default function Page() {
   const { emitCursorMove, sessionInactive } = useSocket()
   const { cursors }  = usePresence()
   const { countryNames, startGame, startPractice, cameraOrientationRef } = useGame()
+  const [showPracticeModal, setShowPracticeModal] = useState(false)
 
   const initialPosition = useMemo(() => {
     if (cameraOrientationRef.current) return cameraOrientationRef.current
@@ -29,23 +31,36 @@ export default function Page() {
   if (sessionInactive) return null
 
   const handleStart = () => { startGame(); router.push('/play') }
-  const handlePractice = () => { startPractice(); router.push('/practice') }
+  const handlePractice = () => { setShowPracticeModal(true) }
+  const handlePracticeConfirm = (timeLimitMs: number | null) => {
+    setShowPracticeModal(false)
+    startPractice(timeLimitMs)
+    router.push('/practice')
+  }
   const handleExplore = () => { router.push('/explore') }
   const handleCameraChange = (lat: number, lng: number) => {
     cameraOrientationRef.current = { lat, lng }
   }
 
   return (
-    <WelcomePage
-      onStart={handleStart}
-      onPractice={handlePractice}
-      onExplore={handleExplore}
-      loading={countryNames.length === 0}
-      countryCount={countryNames.length}
-      cursors={cursors}
-      initialPosition={initialPosition}
-      onCursorMove={emitCursorMove}
-      onCameraChange={handleCameraChange}
-    />
+    <>
+      <WelcomePage
+        onStart={handleStart}
+        onPractice={handlePractice}
+        onExplore={handleExplore}
+        loading={countryNames.length === 0}
+        countryCount={countryNames.length}
+        cursors={cursors}
+        initialPosition={initialPosition}
+        onCursorMove={emitCursorMove}
+        onCameraChange={handleCameraChange}
+      />
+      {showPracticeModal && (
+        <PracticeTimeLimitModal
+          onConfirm={handlePracticeConfirm}
+          onClose={() => setShowPracticeModal(false)}
+        />
+      )}
+    </>
   )
 }
