@@ -23,13 +23,7 @@
     # WebSocket connection — proxied directly, no prefix to strip
     reverse_proxy /ws {$BACKEND_ENDPOINT}
 
-    # Handle geo data requests — one handle_path block per data source, each
-    # strips /geo/{source} before forwarding to that source
-    
-    handle_path /geo/natural_earth/* {
-        reverse_proxy {$NATURAL_EARTH_CDN} 
-    }
-    
-    # Handle all other requests to frontend 
+
+    # Handle all other requests to frontend
     reverse_proxy /* {$FRONTEND_ENDPOINT}
 }

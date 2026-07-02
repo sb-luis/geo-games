@@ -3,10 +3,12 @@ export const MIN_FOV     = 0.3;
 export const MAX_FOV     = 80;
 const SLIDER_POWER = 2.5;
 
+const CDN = 'https://natural-earth-cdn.luis-sb.workers.dev';
+
 export const LEVELS = [
-  { fovMin: 20, url: '/geo/natural_earth/110m/cultural/ne_110m_admin_0_countries.geojson' },
-  { fovMin: 4,  url: '/geo/natural_earth/50m/cultural/ne_50m_admin_0_countries.geojson' },
-  { fovMin: 0,  url: '/geo/natural_earth/10m/cultural/ne_10m_admin_0_countries.geojson' },
+  { fovMin: 20, url: `${CDN}/110m/cultural/ne_110m_admin_0_countries.geojson` },
+  { fovMin: 4,  url: `${CDN}/50m/cultural/ne_50m_admin_0_countries.geojson` },
+  { fovMin: 0,  url: `${CDN}/10m/cultural/ne_10m_admin_0_countries.geojson` },
 ] as const;
 
 export function lodForFov(fov: number): 0 | 1 | 2 {
